@@ -1789,5 +1789,214 @@ guideArchive=function(){
  return go4BeforeArchive();
 };
 
+
+/* One character picker for the Standard Edition and A Gathering of Heroes. */
+const heroBuilds={
+ 'Red Hawk Knight':{gear:['Hand Weapon','Dagger','Heavy Armour','Shield','Rope'],up:[1,4,5],ab:['Parry','Call to Action','Flashing Blade','Powerful Blow'],desc:'Armoured melee defender. Heavy Armour Proficient, Deflect Arrows and the order’s child-protection rules.'},
+ 'Chthonian Mage':{gear:['Staff','Dagger','Wand','Rope'],up:[2,4,5],ab:['Quick Cast','Enhanced Power'],sp:['Magic Bolt','Heal','Hold Creature','Armour'],desc:'Underground caster with Dark Vision, Plant Warden and innate spells. Swap prepared spells for innate options at the table.'},
+ 'River Shark':{gear:['Hand Weapon','Dagger','Throwing Knife','Throwing Knife','Rope'],up:[0,1,2],ab:['Tumble','Flashing Blade','Evade','Deadly Shot','Parry'],desc:'Mobile knife fighter and boat specialist. No spells, heavy armour or two-handed weapons.'},
+ 'Servant of Seth':{gear:['Hand Weapon','Light Armour','Holy Icon','Taref','Rope'],up:[1,4,5],ab:['Focus','Inner Strength'],sp:['Heal','Shield of Light','Burning Light'],desc:'Healing and anti-undead support. Uses blunt weapons, a holy icon and the Taref. Use the chapter’s innate substitutions during play.'},
+ 'Varakian Archer':{gear:['Bow','Quiver','Hand Weapon','Light Armour','Dagger'],up:[0,2,5],ab:['Deadly Shot','Double Shot','Fire Shot','Smoke Shot','Steady Aim'],desc:'Bow specialist with enchanted arrows, Craft Bow and Enhanced Quiver. No spells, shield or heavy armour.'},
+ 'Vampire Hunter':{gear:['Hand Weapon','Hand Crossbow','Light Armour','Dagger','Rope'],up:[1,2,4],ab:['Focus','Halt Undead','Parry'],sp:['Burning Light','Hold Creature'],desc:'An investigator and monster hunter. Has Blood Price, Chosen Foe and Steel Mind. The hand crossbow does not need a quiver.'},
+ 'Scrollmaster of Melnoth':{gear:['Staff','Spellbook','Dagger','Rope'],up:[0,4,5],ab:['Quick Cast','Enhanced Power'],sp:['Invisibility','Paper Crane','Magic Bolt','Heal'],desc:'Arcane scholar with Magic Resistance and Scrollmaster. Fights without armour or shields. This build uses fixed spells instead of an open spell slot.'},
+ 'Encarnoth Delver':{gear:['Hand Weapon','Dagger','Crossbow','Quiver','Light Armour','Rope'],up:[1,2,5],ab:['Focus','Steady Aim','Evade'],sp:['Compass'],desc:'Explorer with Determine Weakness, Endure Hardship, Pack Rat and Skill Master (Ancient Lore).',master:'Ancient Lore'},
+ 'Wasteland Firesword':{gear:['Hand Weapon','Dagger','Light Armour','Fire Wax','Fire Flask','Rope'],up:[0,1,5],ab:['Whirling Death','Flashing Blade','Deadly Strike','Evade'],desc:'Paired blades and fire gear. Endure Hardship and Two-Weapon Fighter; no crossbows, heavy armour, shields or spells. Apply the chapter’s swimming limitation at the table.'},
+ 'Shadow Deep Survivor or Deserter':{gear:['Hand Weapon','Dagger','Light Armour','Bow','Quiver','Wand'],up:[0,1,5],ab:['Evade','Focus','Hand of Fate'],free:['Sneak Attack'],sp:['Magic Bolt','Heal'],twoSkills:true,desc:'Veteran with disguise and Sneak Attack. Starter choices: Favoured Enemy (undead), Fear of Spiders and Magic Vulnerability. Alter the choices using the book and record them in the sheet.'}
+};
+const heroFieldSkills=['Acrobatics','Climb','Navigation','Perception','Stealth','Strength','Survival','Track'];
+const heroLoreSkills=['Ancient Lore','Armoury','Leadership','Perception','Read Runes','Survival','Pick Lock','Traps'];
+function heroBuildData(name){
+ const k=heroBuilds[name],b=gohBases[name];if(!k||!b)return null;
+ const stat=[...b.stats], sk={...b.skills};
+ k.up.forEach(i=>stat[i]++);
+ if(k.gear.includes('Light Armour'))stat[3]++;
+ if(k.gear.includes('Heavy Armour')){stat[3]+=2;if(name!=='Red Hawk Knight')stat[0]--}
+ if(k.gear.includes('Shield'))stat[3]++;
+ for(const x of heroFieldSkills)sk[x]=(sk[x]||0)+1;
+ if(k.twoSkills)for(const x of heroLoreSkills)sk[x]=(sk[x]||0)+1;
+ if(k.master)sk[k.master]=(sk[k.master]||0)+3;
+ return {...k,stat,sk,rp:b.rp,sp:k.sp||[],ab:[...k.ab,...(k.free||[])],points:k.up.length+k.ab.length+(k.sp||[]).length+(k.twoSkills?2:1)};
+}
+const heroPreviousRolePicker=rolePicker;
+rolePicker=function(c){
+ const h=heroPreviousRolePicker(c),chosen=c.gathering?.archetype||c.role;
+ const official='<optgroup label="A Gathering of Heroes · prebuilt">'+opts(Object.keys(heroBuilds),chosen)+'</optgroup>';
+ if(heroBuilds[chosen])return h.replace(/ selected(?=[ >])/,'').replace('</select>',official+'</select>').replace('<div id="customRoleWrap" >','<div id="customRoleWrap" hidden>');
+ return h.replace('</select>',official+'</select>');
+};
+const heroPrevForm=gohForm;
+gohForm=function(c){
+ return heroPrevForm(c)
+  .replace(/<label for="gohArch">[\s\S]*?<\/select>/,m=>'<div hidden>'+m.slice(m.indexOf('<select'))+'</div>')
+  .replace(/<button id="gohLoadBase"[^>]*>[^<]*<\/button>/,m=>m.replace('>Load archetype baseline','>Apply prebuilt archetype'))
+  .replace('Selecting an option alone does not rewrite stats, dice or RP; enter effective values where appropriate.','Apply the selected starter above to load its sheet. Situational traits, innate substitutions and restrictions are still resolved at the table.');
+};
+const heroPrevUpdateRole=updateRoleHint;
+updateRoleHint=function(){
+ const field=$('roleChoice'), c=get($('editor').dataset.id), name=field.value;
+ const official=heroBuildData(name),arch=$('gohArch');
+ if(arch&&!official)arch.value='';
+ if(!official){heroPrevUpdateRole();if(arch)gohUpdate();return}
+ const locked=!!S.session||n(c?.level)>0||n(c?.xp)>0||c?.dead||c?.retired;
+ $('presetBtn').disabled=!!locked;
+ $('presetBtn').title=locked?'Available for unadvanced rangers outside an active scenario.':'';
+ $('roleHint').textContent=official.desc+' '+official.points+' starting BP already allocated. Apply to load stats, skills, abilities and gear.';
+};
+const heroPrevChange=changeRoleChoice;
+changeRoleChoice=function(){
+ const name=$('roleChoice').value, c=get($('editor').dataset.id), arch=$('gohArch');
+ if((S.session||n(c?.level)>0||n(c?.xp)>0||c?.dead||c?.retired)&&(heroBuilds[name]||c?.gathering?.archetype)){
+  $('roleChoice').value=c.gathering?.archetype||(rangerPresets[c.role]?c.role:'Custom / unassigned');
+  toast('An active, advanced or archived ranger keeps their archetype.');updateRoleHint();return
+ }
+ if(!heroBuilds[name]){heroPrevChange();heroSyncGear();return}
+ $('customRoleWrap').hidden=true;updateRoleHint();
+};
+const heroPrevApply=applyRangerPreset;
+applyRangerPreset=function(){
+ const name=$('roleChoice').value,k=heroBuildData(name),c=get($('editor').dataset.id);
+ if(!k)return heroPrevApply();
+ if(!c||S.session||n(c.level)>0||n(c.xp)>0||c.dead||c.retired)return;
+ if(!confirm('Load the '+name+' starter into this draft? Stats, skills, abilities, spells, equipment and archetype reminders will be replaced. Nothing is saved until you save the character.'))return;
+ $('gohArch').value=name;$('eRole').value=name;
+ k.stat.forEach((v,i)=>$('es'+i).value=v);
+ skills.forEach((v,i)=>$('ek'+i).value=k.sk[v]||0);
+ $('eHP').value=k.stat[5];$('eRP').value=k.rp;
+ $('eAbilities').value=k.ab.join('\n');$('eSpells').value=k.sp.join('\n');$('eEquipment').value=k.gear.join(', ');
+ $('gohDetails').value=k.desc; $('gohTraits').innerHTML='';for(const x of ['gohMajor','gohMinor0','gohMinor1'])$(x).value='';
+ $('gohSheet').open=true;gohUpdate();updateSheetSkillHint();heroSyncGear();toast('Prebuilt ranger loaded. Review and save.');
+};
+gohApplyBase=applyRangerPreset;
+const heroPrevEdit=edit;
+edit=function(id){
+ heroPrevEdit(id);
+ const f=$('charForm'),c=get(id);if(!f||c?.kind!=='ranger')return;
+ const box=f.querySelector('.sheet-preset');
+ const tip=box?.querySelector('small');
+ if(tip)tip.textContent='Choose a Standard Edition starter or any of the ten Gathering of Heroes archetypes. Apply to load a playable draft. Your campaign stays unchanged until you save.';
+ const btn=$('presetBtn');if(btn)btn.textContent='Apply prebuilt ranger';
+ const secondary=$('gohLoadBase');if(secondary){secondary.style.display='none';}
+ updateRoleHint();heroSyncGear();
+ const submit=f.onsubmit;
+ f.onsubmit=e=>{
+  const name=$('roleChoice').value, arch=$('gohArch').value;
+  if(heroBuilds[name]&&name!==arch){e.preventDefault();toast('Apply the selected prebuilt ranger before saving.');return}
+  if(arch&&name===arch&&!S.session&&n(c.level)===0&&n(c.xp)===0){
+   const invalid=sheetEntries('eEquipment').find(x=>!heroLegalGear(arch,x));
+   if(invalid){e.preventDefault();toast(invalid+' is not permitted for '+arch+'.');return}
+  }
+  submit(e);
+ };
+};
+function heroLegalGear(name,item){
+ const regular=String(item).toLowerCase().replace(/’/g,"'"), match=(...x)=>x.some(w=>regular===w);
+ const bow=match('bow','crossbow','hand crossbow'), heavy=match('heavy armour'),shield=match('shield'),two=match('two-handed weapon');
+ const allowed=(arch,weapon)=>!match(weapon)||name===arch||$('gohTraits')?.querySelectorAll('.goh-trait')&&[...$('gohTraits').querySelectorAll('.goh-trait')].some(r=>r.querySelector('.goh-name')?.value==='Rare Weapon'&&r.querySelector('.goh-detail')?.value.trim().toLowerCase()===weapon);
+ if(!allowed('Vampire Hunter','hand crossbow')||!allowed('Servant of Seth','taref')||!allowed('Wasteland Firesword','fire flask')||!allowed('Wasteland Firesword','fire wax'))return false;
+ if(name==='Red Hawk Knight')return !bow&&!match('throwing knife');
+ if(name==='Chthonian Mage')return !bow&&!heavy&&!two;
+ if(name==='River Shark')return !heavy&&!two;
+ if(name==='Servant of Seth')return !bow&&!match('dagger','throwing knife');
+ if(name==='Varakian Archer')return !heavy&&!shield;
+ if(name==='Vampire Hunter')return !match('wand',"wizard's staff",'focusing crystal');
+ if(name==='Scrollmaster of Melnoth')return !bow&&!heavy&&!shield&&!two&&!match('light armour');
+ if(name==='Encarnoth Delver')return !heavy&&!shield&&!two;
+ if(name==='Wasteland Firesword')return !heavy&&!shield&&!match('crossbow','hand crossbow');
+ return true;
+}
+function heroSyncGear(){
+ const pick=$('pickeEquipment'),name=$('gohArch')?.value;if(!pick)return;
+ for(const o of pick.options){if(o.value!=='')o.disabled=!heroLegalGear(name,library.Equipment[+o.value].name)}
+ if(pick.selectedOptions[0]?.disabled)pick.value='';
+ sheetEffect('Equipment','eEquipment');
+}
+const heroUpdateBeforeGear=gohUpdate;
+gohUpdate=function(){
+ heroUpdateBeforeGear();heroSyncGear();
+ const arc=$('gohArch')?.value;
+ if(arc&&$('gohArchHint'))$('gohArchHint').textContent=arc+' · Supplement pp. '+gohArchetypes[arc]+'. See the chapter for changes to this starter.';
+};
+const heroGearInfo={
+ 'Hand Crossbow':[41,'10-inch range, +2 damage, one item slot and no quiver. Spend an action to reload. Vampire Hunter equipment.'],
+ 'Taref':[32,'6-inch throw at −1 damage, or magical at +1 damage against undead. In melee, −1 Fight and −1 damage; counts as magical against undead. Servants of Seth take it instead of the free dagger.'],
+ 'Fire Flask':[55,'Single use. One action to throw up to 8 inches. Figures within 1 inch of impact take a +4 shooting attack. Half damage, rounded down, against targets normally harmed only by magic.'],
+ 'Fire Wax':[55,'Single use, one slot. Apply as a free action; lit weapons do +1 damage against living targets. Against targets that need magic, halve nonmagical weapon damage and round down.'],
+ 'Holy Icon':[34,'For Servants of Seth it occupies no slot. Heal: 6 Health. Burning Light: +4 attack. Shield of Light: −4 incoming attacks. See the Standard Edition for use by other casters.']
+};
+for(const item of library.Equipment){
+ const x=heroGearInfo[item.name];if(x){item.effect=x[1];item.gohPage=x[0];}
+}
+library.Spells.push({name:'Detonation',effect:'Nesra’s delayed area spell. Set the marker and resolve the +5 attack within 4 inches at the end of the following turn. Not a starting ranger spell.',kind:'spell',icon:'spark',gohPage:122,page:122,locked:true});
+const heroOldAdd=addSheetChoice;
+addSheetChoice=function(group,id){
+ const raw=$('pick'+id)?.value;if(raw!==''&&library[group]?.[+raw]?.locked){toast('This spell is not a starting choice. Use the supplement’s learning rule.');return}
+ if(group==='Equipment'&&raw!==''&&!heroLegalGear($('gohArch')?.value,library[group][+raw].name)){toast('Not permitted for this archetype.');return}
+ return heroOldAdd(group,id);
+};
+const heroSlots=guideSlotCount;
+guideSlotCount=function(c){
+ const items=(c.equipment||'').split(/[,\n]/).map(v=>v.trim().toLowerCase()),name=c.gathering?.archetype;
+ let count=heroSlots(c);
+ if(name==='Servant of Seth'){
+  if(items.includes('holy icon'))count--;
+  if(items.includes('taref')&&!items.includes('dagger')&&!items.includes('throwing knife'))count--;
+ }
+ if(name==='Scrollmaster of Melnoth'&&items.includes('spellbook'))count--;
+ return Math.max(0,count);
+};
+/* Recruits use fixed published profiles, not ranger starter budgets. */
+templates.Otter=[3,[4,-1,0,14,3,1],'',{}];
+animals.push('Otter');
+companionDescriptions.Otter=['Gathering of Heroes','Uses the Ferret profile with Amphibious as its starter trait. Small carryable animal; reduced support and at most 3 damage.','Supplement p. 65.'];
+templates.Gorbin=[30,[6,3,0,12,0,14],'Two-Handed Weapon',{Strength:5}];
+companionDescriptions.Gorbin=['Scenario recruit','An ogre ally who can join the roster after surviving Prison Break.','Supplement p. 146 prints “XP 30” in the companion cost block; this tracker treats that as 30 RP.'];
+const heroPriorComp=makeCompanion;
+makeCompanion=function(type,owner){
+ const c=heroPriorComp(type,owner);
+ if(type==='Otter')c.gohAnimal=['Amphibious'];
+ if(type==='Nesra'){c.abilities=['Enhanced Power'];c.spells=['Fireball','Fireball','Detonation']}
+ return c;
+};
+const heroPriorSkills=compSkills;
+compSkills=function(t){return t==='Otter'?heroPriorSkills('Ferret'):heroPriorSkills(t)};
+const heroPriorRecruit=recruitPage;
+function heroRecruitGroups(selected,includeEmpty=false){
+ const all=Object.keys(templates), extra=k=>Object.hasOwn(gohExtra,k)||Object.hasOwn(goh2Recruits,k)||['Otter','Nesra','Gorbin'].includes(k);
+ const linked=k=>!!goh2Recruits[k]?.[8]||['Nesra','Gorbin'].includes(k);
+ const sort=a=>a.sort((x,y)=>x.localeCompare(y));
+ return (includeEmpty?'<option value="">Choose a companion…</option>':'')+[
+  ['A Gathering of Heroes',sort(all.filter(k=>extra(k)&&!linked(k)))],
+  ['A Gathering of Heroes · special recruitment',sort(all.filter(k=>extra(k)&&linked(k)))],
+  ['Standard Edition',sort(all.filter(k=>!extra(k)))]
+ ].map(([group,keys])=>'<optgroup label="'+esc(group)+'">'+opts(keys,selected)+'</optgroup>').join('');
+}
+recruitPage=function(){
+ return heroPriorRecruit().replace('<div class="catalog-toolbar">','<div class="catalog-toolbar stack"><label for="heroRecruitPick">Recruit a prebuilt companion</label><select id="heroRecruitPick" onchange="heroPickRecruit(this)">'+heroRecruitGroups('',true)+'</select>');
+};
+function heroPickRecruit(el){const t=el.value;if(!t)return;el.value='';recruitTemplate(t);}
+const heroPriorDraw=drawCompanionSheet;
+drawCompanionSheet=function(){
+ heroPriorDraw();
+ const c=companionDraft,select=$('cpType');if(companionNew&&select)select.innerHTML=heroRecruitGroups(c.type);
+ if(!['Gorbin','Nesra'].includes(c.type)||S.session)return;
+ const box=$('cpBudget'),f=$('compForm');if(!box||!f)return;
+ const text=c.type==='Gorbin'?'Gorbin survived Prison Break.':'Nesra survived Ghost Stone and passed the Leadership TN18 check for this mission.';
+ box.insertAdjacentHTML('beforebegin','<label class="check"><input id="heroRecruitCondition" type="checkbox" '+(c.heroRecruitCondition?'checked':'')+'> '+esc(text)+'</label>');
+ const submit=f.onsubmit;f.onsubmit=e=>{
+  if($('cpActive').checked&&!$('heroRecruitCondition').checked){e.preventDefault();toast('Confirm the printed recruitment condition before deploying this companion.');return}
+  c.heroRecruitCondition=$('heroRecruitCondition').checked;
+  submit(e);
+ };
+};
+const heroPriorStatus=partyStatus;
+partyStatus=function(draft=null){
+ const status=heroPriorStatus(draft);if(!status.legal)return status;
+ const figures=partyCompanions().filter(c=>!draft||c.id!==draft.id);
+ if(draft?.active!==false&&draft)figures.push(draft);
+ const blocked=figures.find(c=>['Gorbin','Nesra'].includes(c.type)&&!c.scenarioFree&&!c.heroRecruitCondition);
+ if(blocked)return {...status,legal:false,reason:'Confirm '+blocked.type+'’s special recruitment requirement in their companion sheet.'};
+ return status;
+};
+
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
