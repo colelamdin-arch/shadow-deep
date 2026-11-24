@@ -1635,5 +1635,159 @@ noteReveal=function(id,who,applyXP){
  return burnPriorNote(id,who,applyXP);
 };
 
+
+/* Follow the campaign rules for a mission without changing the common roster. */
+const go4GhostOrder=['Rear Guard','The Gnoll Encampment','The Distraction','Destroy the Stone'];
+const go4GhostBand=[[0,5],[10,15],[0,5],[10,15]];
+const go4ParticipantId=x=>typeof x==='string'?x:x?.id;
+function go4GhostRecords(){
+ return go4GhostOrder.map(t=>S.history.find(h=>h.mission==='Ghost Stone'&&h.scenario===t)||null);
+}
+function go4GhostParty(t=S.scenario){
+ const i=go4GhostOrder.indexOf(t);if(i<0)return {error:''};
+ const records=go4GhostRecords(),previous=records[i-1],roster=active().filter(c=>!c.dead&&!c.retired);
+ const r=roster.filter(c=>c.kind==='ranger'), companions=roster.filter(c=>c.kind==='companion'&&!c.scenarioFree);
+ const [lo,hi]=go4GhostBand[i], range=lo+'–'+hi;
+ if(records[i])return {error:t+' is already recorded for this Ghost Stone expedition.',range};
+ if(i&&!previous)return {error:'Record '+go4GhostOrder[i-1]+' before commencing '+t+'.',range};
+ if(!r.length)return {error:'Deploy a company with a lead ranger in levels '+range+'.',range};
+ const own=i>=2?records[i-2]:null, opposite=i%2?records[i-1]:null;
+ const oppositeCompany=i>=2?records[i===2?1:0]:opposite;
+ const ids=(h)=>new Set((h?.participants||[]).map(go4ParticipantId));
+ if(r.some(c=>ids(oppositeCompany).has(c.id)))return {error:'A ranger cannot serve in both Ghost Stone companies. Deploy the other company.',range};
+ if(own){
+  const ownIds=ids(own);
+  if(r.some(c=>!ownIds.has(c.id)))return {error:'Use the same surviving ranger company that played '+own.scenario+'. Only companions may be reorganized.',range};
+ }else if(!r.some(c=>n(c.level)>=lo&&n(c.level)<=hi)){
+  return {error:'This company must be led by a ranger at level '+range+'.',range};
+ }
+ if(opposite&&companions.some(c=>ids(opposite).has(c.id)))return {error:'This deployment repeats a companion who already served in the other company during this part of Ghost Stone.',range};
+ return {error:'',range};
+}
+function go4GhostBrief(){
+ if(S.mission!=='Ghost Stone'||S.customScenario||S.session)return '';
+ const a=go4GhostParty();
+ return '<section class="panel stack section"><div class="eyebrow">Ghost Stone · two companies</div><h2>Deployment check</h2><p>Use one company for scenarios 1 and 3, and a separate company for 2 and 4. Companions can change companies between parts, but cannot serve twice within either part.</p><div class="note'+(a.error?' warning':'')+'">'+esc(a.error||'Company assignment is legal for this scenario.')+'</div><div class="row"><button onclick="show(\'party\')">Review current party</button><button onclick="openGohReference(121)">Company rules</button></div></section>';
+}
+const go4Campaign=campaign;
+campaign=function(){return go4GhostBrief()+go4Campaign()};
+function go4Recorded(s,name){
+ return S.history.find(h=>h.mission===s&&h.scenario===name)||null;
+}
+function go4Success(missionName,t){
+ const h=go4Recorded(missionName,t);
+ return h&&(!h.go2||h.go2.result==='success')?h:null;
+}
+function go4FixedRoster(missionName){
+ if(S.mission!==missionName||S.customScenario||S.session)return null;
+ const m=missions[missionName], index=m?.indexOf(S.scenario)??-1;
+ if(index<1)return null;
+ let h=missionName==='Temple of Madness'?go4Recorded(missionName,m[0]):go4Recorded(missionName,m[index-1]);
+ if(!h)return null;
+ let ids=new Set((h.participants||[]).map(go4ParticipantId));
+ return ids.size?ids:null;
+}
+function go4MissionCheck(){
+ if(S.customScenario)return '';
+ if(S.mission==='Ghost Stone')return go4GhostParty().error;
+ const m=missions[S.mission],i=m?.indexOf(S.scenario)??-1;
+ if(i<1)return '';
+ if(S.mission==='Menagerie'&&!go4Success('Menagerie',m[0]))return 'Complete The Unintended Ambush before Counter Ambush.';
+ if(S.mission==='Incinerator'&&!go4Success('Incinerator',m[0]))return 'Escape Fire Drop before Prison Break.';
+ if(S.mission==='Temple of Madness'){
+  const start=go4Success('Temple of Madness',m[0]);
+  if(!start)return 'Complete The Laughing Columns and record the revealed route first.';
+  if(i===3&&(!go4Success('Temple of Madness',m[1])||!go4Success('Temple of Madness',m[2])))return 'Complete both temple chambers before The Mirror Enduring.';
+  if(i===1||i===2){
+   const route=start.go2?.next;
+   if(route&&route!==S.scenario&&!go4Success('Temple of Madness',route))return 'Follow the passage recorded after The Laughing Columns first.';
+  }
+  if(go4Success('Temple of Madness',S.scenario))return 'This chamber has already been completed for this expedition.';
+ }
+ const fixed=go4FixedRoster(S.mission);
+ if(fixed&&['Temple of Madness','Incinerator'].includes(S.mission)){
+  const now=new Set(active().filter(c=>!c.dead&&!c.retired&&!c.scenarioFree).map(c=>c.id));
+  const continuing=[...fixed].filter(id=>{const c=get(id);return c&&!c.dead&&!c.retired&&!c.scenarioFree;});
+  if(now.size!==continuing.length||continuing.some(id=>!now.has(id)))return 'Continue with the surviving party from the previous scenario. Do not recruit replacements or move survivors to reserve.';
+ }
+ return '';
+}
+function go4Nesra(){
+ const c=makeCompanion('Recruit','');
+ Object.assign(c,{name:'Nesra',type:'Nesra',stats:[6,2,0,11,6,14],hp:14,rp:0,skills:{},equipment:'Hand Weapon, Light Armour, Wand',abilities:['Enhanced Power'],spells:['Fireball','Fireball','Detonation'],scenarioFree:true,go2Temp:true});
+ return c;
+}
+if(!templates.Nesra)templates.Nesra=[40,[6,2,0,11,6,14],'Hand Weapon, Light Armour, Wand',{}];
+if(!companionDescriptions.Nesra)companionDescriptions.Nesra=['Ghost Stone auxiliary','An explosive-magic specialist who joins the last Ghost Stone scenario.','Required in Destroy the Stone; future recruitment needs the book’s mission-entry check.'];
+const go4RecruitNesra=recruitTemplate;
+recruitTemplate=function(t){
+ if(t==='Nesra'){toast('Nesra joins only as a scenario ally. Later recruitment requires a separate campaign ruling (Gathering p. 122).');return;}
+ return go4RecruitNesra(t);
+};
+const go4Before=prepareMission;
+prepareMission=function(){
+ if(S.session)return go4Before();
+ const why=go4MissionCheck();
+ if(why){toast(why);show('campaign');return;}
+ go4Before();
+ if(!S.session?.go2||S.scenario!=='Destroy the Stone'||S.session.go4Nesra)return;
+ const c=go4Nesra();
+ S.companions.push(c);S.session.participants.push(c.id);S.session.go4Nesra=c.id;
+ appendField('Nesra joined the expedition as the required auxiliary. No recruitment points spent.');commit();
+};
+
+function go4EscapedCount(){
+ const x=go4Recorded('Ghost Stone','Rear Guard');
+ return n(x?.go2?.soldiersEscaped);
+}
+function go4Reinforcements(){return Math.min(3,Math.ceil(go4EscapedCount()/2));}
+function go4ReinforcementChoice(i,v){
+ if(S.session||S.mission!=='Ghost Stone'||S.scenario!=='Destroy the Stone'||i>=go4Reinforcements()||!['Man-at-Arms','Guardsman'].includes(v))return;
+ (S.go4Reinforcements||={})[i]=v;commit();
+}
+const go4GhostOriginal=go4GhostBrief;
+go4GhostBrief=function(){
+ const h=go4GhostOriginal();
+ if(!h||S.scenario!=='Destroy the Stone'||!go4Reinforcements())return h;
+ return h+'<section class="panel stack"><h3>Reinforcements from Rear Guard</h3><p>'+go4EscapedCount()+' soldiers escaped. Choose '+go4Reinforcements()+' temporary allies for the finale.</p>'+Array.from({length:go4Reinforcements()},(_,i)=>'<label for="go4Reinf'+i+'">Reinforcement '+(i+1)+'</label><select id="go4Reinf'+i+'" onchange="go4ReinforcementChoice('+i+',this.value)">'+opts(['Man-at-Arms','Guardsman'],S.go4Reinforcements?.[i]||'Man-at-Arms')+'</select>').join('')+'</section>';
+};
+const go4DeployAux=prepareMission;
+prepareMission=function(){
+ const before=S.session?.id;
+ go4DeployAux();
+ if(!S.session||before===S.session.id||S.mission!=='Ghost Stone'||S.scenario!=='Destroy the Stone'||!go4Reinforcements())return;
+ for(let i=0;i<go4Reinforcements();i++){
+  const type=S.go4Reinforcements?.[i]||'Man-at-Arms';
+  const unit=makeCompanion(type,'');
+  Object.assign(unit,{name:'Reinforcement '+(i+1)+' · '+type,rp:0,go2Temp:true,scenarioFree:true});
+  S.companions.push(unit);S.session.participants.push(unit.id);
+ }
+ appendField(go4Reinforcements()+' temporary reinforcements joined from Rear Guard.');commit();
+};
+function go4MarkEscaped(n0){
+ const field=S.session?.go2;
+ if(!field||S.scenario!=='Rear Guard'||!G().post)return;
+ if(n0===''){delete field.soldiersEscaped;commit();return;}
+ const k=Number(n0),cap=S.objectives.filter(x=>x.done&&x.text.startsWith('Wounded soldier survived')).length;
+ if(!Number.isInteger(k)||k<0||k>cap){toast('Use a whole number from 0 to '+cap+'. First mark the soldiers who survived in your objectives.');return;}
+ field.soldiersEscaped=k;commit();
+}
+const go4PostOriginal=postPanel;
+postPanel=function(){
+ const h=go4PostOriginal(),f=S.session?.go2;
+ if(!f||S.scenario!=='Rear Guard')return h;
+ const bonus='<div class="note stack"><h3>Ghost Stone carryover</h3><p>Mark each surviving soldier in Objectives, then enter how many escaped. This adds reinforcements in scenario 4; it does not award the survival XP a second time.</p><label for="go4Escaped">Wounded soldiers who escaped</label><input id="go4Escaped" type="number" step="1" min="0" max="'+S.objectives.filter(x=>x.done&&x.text.startsWith('Wounded soldier survived')).length+'" value="'+esc(f.soldiersEscaped??'')+'" onchange="go4MarkEscaped(this.value)"></div>';
+ return h.replace('<h3>3 · Recovery & archive</h3>',bonus+'<h3>3 · Recovery & archive</h3>');
+};
+const go4BeforeArchive=guideArchive;
+guideArchive=function(){
+ const f=S.session?.go2;
+ if(f&&S.scenario==='Rear Guard'){
+  const cap=S.objectives.filter(x=>x.done&&x.text.startsWith('Wounded soldier survived')).length;
+  if(!Number.isInteger(f.soldiersEscaped)||f.soldiersEscaped<0||f.soldiersEscaped>cap){toast('Record the number of escaping wounded soldiers (including zero).');return}
+ }
+ return go4BeforeArchive();
+};
+
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
