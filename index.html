@@ -585,5 +585,187 @@ function commandDashboard(){
 }
 dashboard=commandDashboard;
 
+
+/* Gathering of Heroes support. Original UI guidance; consult the book for rule text. */
+const gohOfficial='https://modiphius.us/products/rangers-of-shadow-deep-a-gathering-of-heroes';
+const gohArchetypes={'Red Hawk Knight':'17-20','Chthonian Mage':'21-25','River Shark':'26-29','Servant of Seth':'30-34','Varakian Archer':'35-38','Vampire Hunter':'39-42','Scrollmaster of Melnoth':'43-46','Encarnoth Delver':'47-50','Wasteland Firesword':'51-55','Shadow Deep Survivor or Deserter':'56-59'};
+
+const gohBases=Object.fromEntries(Object.keys(gohArchetypes).map((name,i)=>[name,([{"bp":8,"rp":100,"stats":[6,3,0,10,4,18],"skills":{"Armoury":2,"Leadership":2,"Pick Lock":-2,"Stealth":-1,"Strength":1,"Survival":1,"Track":-1,"Traps":-2}},{"bp":10,"rp":100,"stats":[6,2,1,10,4,18],"skills":{"Acrobatics":-1,"Ancient Lore":-1,"Armoury":-1,"Climb":-1,"Navigation":1,"Perception":1,"Pick Lock":-1,"Stealth":1,"Survival":1}},{"bp":9,"rp":98,"stats":[6,2,1,10,4,18],"skills":{"Swim":3,"Track":-1,"Acrobatics":2,"Climb":2,"Leadership":-2,"Read Runes":-1}},{"bp":9,"rp":100,"stats":[6,2,1,10,5,18],"skills":{"Traps":-1,"Ancient Lore":1,"Navigation":1,"Pick Lock":-1,"Read Runes":1}},{"bp":9,"rp":100,"stats":[6,1,2,10,4,18],"skills":{"Perception":1,"Pick Lock":-1,"Read Runes":-1,"Traps":-1,"Ancient Lore":-1,"Armoury":1}},{"bp":9,"rp":98,"stats":[6,2,1,10,4,18],"skills":{"Ancient Lore":2,"Armoury":1,"Leadership":-1,"Perception":1,"Pick Lock":1,"Stealth":2,"Track":1,"Traps":1}},{"bp":10,"rp":98,"stats":[6,1,0,10,4,18],"skills":{"Acrobatics":-1,"Ancient Lore":2,"Armoury":-1,"Climb":-1,"Leadership":-1,"Pick Lock":-1,"Read Runes":3,"Swim":-1,"Track":-1,"Traps":-1}},{"bp":8,"rp":100,"stats":[6,2,1,10,4,18],"skills":{"Acrobatics":2,"Ancient Lore":3,"Armoury":1,"Climb":3,"Navigation":3,"Perception":3,"Pick Lock":2,"Read Runes":3,"Stealth":2,"Survival":3,"Track":1,"Traps":3}},{"bp":8,"rp":98,"stats":[6,3,1,10,4,18],"skills":{"Ancient Lore":1,"Armoury":1,"Navigation":1,"Read Runes":-1,"Survival":1,"Swim":-2,"Track":1}},{"bp":10,"rp":90,"stats":[6,2,1,10,3,17],"skills":{"Ancient Lore":1,"Survival":1}}])[i]]));
+function gohApplyBase(){
+ const name=$('gohArch').value, data=gohBases[name];
+ if(!data||S.session)return;
+ if(!confirm('Load '+name+' base stats, skills and RP into this draft? This replaces those fields and resets current HP in this draft. Review before saving.'))return;
+ data.stats.forEach((v,i)=>$('es'+i).value=v);
+ skills.forEach((v,i)=>$('ek'+i).value=data.skills[v]||0);
+ $('eHP').value=data.stats[5];$('eRP').value=data.rp;
+ if(name==='Shadow Deep Survivor or Deserter'&&!$('eAbilities').value.split('\n').map(a=>a.trim()).includes('Sneak Attack'))
+  $('eAbilities').value=[$('eAbilities').value.trim(),'Sneak Attack'].filter(Boolean).join('\n');
+}
+
+const gohTraits=[
+ ['Calling',8,.5,true],['Animal Friend',7],['Dark Vision',7],['Deflect Arrows',8],['Determine Weakness',8,1],['Disease Immunity',8],['Enchant Arrow',8],['Endure Hardship',8],['Favoured Enemy',8,.5,true],['Favoured Magical Equipment',9,.5,true],['Favoured Weapon',9,.5,true],['Heavy Armour Proficient',9],['Innate Spell',9,.5,true],['Inspirational',9],['Magic Resistance',9],['Pack Rat',10,1],['Poison Immunity',10],['Quick Translate',10],['Rare Companion',10,.5,true],['Rare Heroic Ability',10,.5,true],['Rare Spell',10,.5,true],['Rare Weapon',10,.5,true],['Scrollmaster',10],['Shadow Deep Veteran',10],['Skill Master',10,.5,true],['Spellbook Caster',10,1],['Spellcaster',11],['Steady Feet',11],['Steel Mind',11],['Throwing Knife Master',11],['Two-Weapon Fighter',11],['Weapon Dedication',11]
+].sort((a,b)=>a[0].localeCompare(b[0]));
+const gohRepeat=new Set(['Favoured Enemy','Innate Spell','Rare Companion','Rare Heroic Ability','Rare Spell','Rare Weapon','Skill Master']);
+const gohMajor=['Blood Rage','Chronic Disease','Frail','Grim Loner','Near Sighted','Old Age','One Arm','One Leg','Slow Recovery'];
+const gohMinor=['Absent Minded','Allergy','Cannot Swim','Fear of Heights','Fear of Insects','Fear of Rats','Fear of Snakes','Fear of Spiders','Fear of Water','Illiterate','Ill-Fated','Low Pain Threshold','Magic Vulnerability','No Charisma','No Sense of Balance','No Sense of Direction','Not a Natural Leader','Peaceful Spellcaster','Poor Eyesight','Spell Drain','Weak'];
+const gohExtra={
+ 'Battle-Mage':[20,[6,2,0,11,2,10],'Hand Weapon, Light Armour',{},['Fireball'],'A fighter with a single area-damage spell.'],
+ 'Healer':[15,[6,1,0,10,3,10],'Hand Weapon',{},['Heal'],'Restores health in the field. A second Heal is an optional 5 RP.'],
+ 'Illusionist':[25,[6,1,0,10,2,12],'Hand Weapon',{},['Smoke','Teleport','Transpose'],'Changes lines of sight and positions.'],
+ 'Spy':[25,[6,3,0,11,4,12],'Hand Weapon',{'Pick Lock':3,Stealth:3},['Distraction'],'Opens locks, scouts quietly, and can draw an enemy off course.'],
+ 'Bear':[25,[6,4,0,12,0,14],'', {Strength:5},[],'Hard-hitting ally; +2 damage.'],
+ 'Boar':[15,[6,2,0,12,2,8],'',{Strength:3},[],'Gains +2 Fight when it charges and attacks in the same activation.'],
+ 'Ferret':[3,[4,-1,0,14,3,1],'',{},[],'Choose Stealth +6 or Amphibious. Carryable; +1 support; damage max 3.'],
+ 'Lion':[20,[8,3,0,10,2,10],'',{Acrobatics:3,Climb:5,Stealth:3,Track:3},[],'Fast tracking and climbing support.'],
+ 'Lynx':[8,[7,0,0,10,2,6],'',{Stealth:5,Swim:3},[],'Expert climber; +1 damage.'],
+ 'Monkey':[5,[6,0,0,8,4,4],'',{Acrobatics:6,Climb:10},[],'Expert climber; damage max 5.'],
+ 'Snake':[3,[4,0,0,14,2,1],'',{},[],'Choose two of Amphibious, Nimble, and Poison. Carryable; +1 support; damage max 5.'],
+ 'Songbird':[2,[6,-2,0,15,4,1],'',{},[],'Flying and carryable; +1 Will rolls to heroes within 2 inches. +1 support; damage max 1.'],
+ 'Tiger':[25,[6,4,0,10,1,14],'',{Acrobatics:2,Stealth:3,Swim:5},[],'Strong attacker; +2 damage.']
+};
+const gohAnimals=['Bear','Boar','Ferret','Lion','Lynx','Monkey','Snake','Songbird','Tiger'];
+for(const [name,t] of Object.entries(gohExtra)){
+ templates[name]=t.slice(0,4);
+ companionDescriptions[name]=['Gathering of Heroes',t[5],'Recruit through the normal party budget.'];
+}
+animals.push(...gohAnimals);
+const gohOriginalCompSkills=compSkills;
+compSkills=function(t){return gohAnimals.includes(t)?['Acrobatics','Climb','Navigation','Perception','Stealth','Strength','Survival','Swim','Track']:gohOriginalCompSkills(t)};
+const gohOriginalMake=makeCompanion;
+makeCompanion=function(type,owner){
+ const c=gohOriginalMake(type,owner);
+ if(gohExtra[type]) c.spells=[...gohExtra[type][4]];
+ if(type==='Ferret'){ c.gohAnimal=['Stealth'];c.skills.Stealth=6; }
+ if(type==='Snake') c.gohAnimal=['Amphibious','Nimble'];
+ return c;
+};
+const gohCaptureCompanion=captureCompanionDraft;
+captureCompanionDraft=function(){
+ gohCaptureCompanion();
+ const c=companionDraft;
+ if($('gohSecondHeal')){
+  const want=$('gohSecondHeal').checked;
+  if(want!==!!c.gohSecondHeal){
+   if(want)c.spells.splice(1,0,'Heal');
+   else c.spells.splice(1,1);
+   const i=c.abilities.length+1;
+   c.used=c.used.flatMap(j=>want?(j>=i?[j+1]:[j]):(j===i?[]:j>i?[j-1]:[j]));
+   c.gohSecondHeal=want;c.rp=15+(want?5:0);
+  }
+ }
+ if($('gohFerret')){
+  const choice=$('gohFerret').value, prev=(c.gohAnimal||[])[0];
+  if(choice!==prev){c.skills.Stealth=Math.max(0,n(c.skills.Stealth)+(choice==='Stealth'?6:0)-(prev==='Stealth'?6:0));c.gohAnimal=[choice];}
+ }
+ if($('gohSnake0'))c.gohAnimal=['Amphibious','Nimble','Poison'].filter((_,i)=>$('gohSnake'+i).checked);
+};
+const gohDrawCompanion=drawCompanionSheet;
+drawCompanionSheet=function(){
+ gohDrawCompanion();
+ const c=companionDraft, f=$('compForm'), b=$('cpBudget');
+ if(!['Healer','Ferret','Snake'].includes(c.type))return;
+ const locked=S.session?' disabled':'';
+ const selected=c.gohAnimal||[];
+ let html='';
+ if(c.type==='Healer')html='<label class="check"><input id="gohSecondHeal" type="checkbox"'+(c.gohSecondHeal?' checked':'')+locked+'> Second Heal spell (+5 RP)</label>';
+ if(c.type==='Ferret')html='<label for="gohFerret">Ferret specialization</label><select id="gohFerret"'+locked+'>'+opts(['Stealth','Amphibious'],selected[0])+'</select>';
+ if(c.type==='Snake')html='<small>Choose exactly two snake traits.</small>'+['Amphibious','Nimble','Poison'].map((v,i)=>'<label class="check"><input type="checkbox" id="gohSnake'+i+'"'+(selected.includes(v)?' checked':'')+locked+'> '+v+'</label>').join('');
+ b.insertAdjacentHTML('beforebegin','<div class="note stack"><b>Gathering of Heroes option</b>'+html+'</div>');
+ for(const id of ['gohSecondHeal','gohFerret'])if($(id))$(id).onchange=()=>{captureCompanionDraft();drawCompanionSheet()};
+ const submit=f.onsubmit;
+ f.onsubmit=e=>{
+  if(c.type==='Snake'&&!S.session&&[0,1,2].filter(i=>$('gohSnake'+i).checked).length!==2){e.preventDefault();toast('Choose exactly two snake traits.');return}
+  submit(e);
+ };
+};
+function gohCardText(c){
+ const g=c.gathering;
+ const bits=[g?.archetype,...(g?.traits||[]).map(t=>t.name+(t.detail?' ('+t.detail+')':'')),g?.major,...(g?.minor||[]),...(c.gohAnimal||[])].filter(Boolean);
+ return bits.length?bits.join(' / '):'';
+}
+function gohTraitRow(t={}){
+ const names=['',...gohTraits.map(x=>x[0])];
+ return '<div class="fields goh-trait"><label>Trait<select aria-label="Trait name" class="goh-name" onchange="gohUpdate()">'+opts(names,t.name||'')+'</select></label><label>Choice, target or vow<input class="goh-detail" maxlength="160" value="'+esc(t.detail||'')+'" placeholder="Only when applicable"></label><button type="button" onclick="this.closest(\'.goh-trait\').remove();gohUpdate()">Remove trait</button><small class="goh-cost muted"></small></div>';
+}
+function gohForm(c){
+ const g=c.gathering||{};
+ return '<details class="panel stack" id="gohSheet"'+(gohCardText(c)||g.notes?' open':'')+'><summary><b>A Gathering of Heroes</b> · advanced character creation</summary><div class="stack section"><label for="gohArch">Official hero archetype (not a starter preset)</label><select id="gohArch" onchange="gohUpdate()">'+opts(['',...Object.keys(gohArchetypes)],g.archetype||'')+'</select><small id="gohArchHint"></small><button id="gohLoadBase" type="button" onclick="gohApplyBase()" hidden>Load archetype baseline</button><h3>Purchased traits</h3><div id="gohTraits" class="stack">'+(g.traits||[]).map(gohTraitRow).join('')+'</div><button type="button" onclick="$(\'gohTraits\').insertAdjacentHTML(\'beforeend\',gohTraitRow());gohUpdate()">Add trait</button><h3>Optional limitations</h3><div class="fields">'+[['gohMajor','Major limitation',gohMajor,g.major],['gohMinor0','Minor limitation',gohMinor,g.minor?.[0]],['gohMinor1','Second minor limitation',gohMinor,g.minor?.[1]]].map(([id,label,options,value])=>'<label for="'+id+'">'+label+'<select id="'+id+'" onchange="gohUpdate()">'+opts(['',...options],value||'')+'</select></label>').join('')+'</div><div class="note" id="gohBudget" aria-live="polite"></div><label for="gohDetails">Granted traits, restrictions and table reminders</label><textarea id="gohDetails" maxlength="1200" placeholder="Record the package from your book, or note when a trait changes a roll.">'+esc(g.notes||'')+'</textarea><small>Record only purchased traits above. Archetype-granted traits, setting-specific effects and later level-up adjustments go in reminders. Selecting an option alone does not rewrite stats, dice or RP; enter effective values where appropriate. Use your copy of the supplement for the full rules.</small></div></details>';
+}
+function gohCollect(){
+ return {archetype:$('gohArch').value,traits:[...$('gohTraits').querySelectorAll('.goh-trait')].map(e=>({name:e.querySelector('.goh-name').value,detail:e.querySelector('.goh-detail').value.trim()})).filter(t=>t.name),major:$('gohMajor').value,minor:[$('gohMinor0').value,$('gohMinor1').value].filter(Boolean),notes:$('gohDetails').value.trim()};
+}
+function gohCheck(g){
+ let cost=0, seen=new Set(),error='';
+ for(const t of g.traits){
+  const spec=gohTraits.find(x=>x[0]===t.name);
+  if(!spec){error='Unknown purchased trait.';continue}
+  cost+=spec[2]??.5;
+  const key=t.name+'|'+(gohRepeat.has(t.name)?t.detail.toLowerCase():'');
+  if(seen.has(key))error='Choose a different trait or a different specialization.';
+  if(spec[3]&&!t.detail)error='Add the required choice or vow for '+t.name+'.';
+  seen.add(key);
+ }
+ if(cost>2)error='Purchased creation traits may cost at most 2 build points.';
+ if(g.major&&g.minor.length>1)error='A major limitation allows only one minor limitation.';
+ if(new Set(g.minor).size!==g.minor.length)error='Choose two different minor limitations.';
+ if(g.major==='Near Sighted'&&g.minor.includes('Poor Eyesight'))error='Near Sighted cannot be combined with Poor Eyesight.';
+ if(g.minor.includes('No Sense of Balance')&&g.traits.some(t=>t.name==='Steady Feet'))error='Steady Feet cannot be combined with No Sense of Balance.';
+ return {cost,credit:(g.major?1:0)+.5*g.minor.length,error};
+}
+function gohUpdate(){
+ if(!$('gohSheet'))return;
+ const g=gohCollect(), p=gohCheck(g);
+ $('gohArchHint').textContent=g.archetype?'Supplement pp. '+gohArchetypes[g.archetype]+'. '+gohBases[g.archetype].bp+' starting build points. Load its baseline if starting a new build, then use the book for the complete package.':'Regular Rangers can use traits and limitations without choosing an archetype.';
+ $('gohLoadBase').hidden=!g.archetype||!!S.session;
+ for(const e of $('gohTraits').querySelectorAll('.goh-trait')){
+  const x=gohTraits.find(t=>t[0]===e.querySelector('.goh-name').value);
+  e.querySelector('.goh-cost').textContent=x?(x[2]??.5)+' BP · book p. '+x[1]:'';
+ }
+ $('gohBudget').innerHTML='<b>Creation adjustment</b> · '+p.cost+' BP spent on traits / '+p.credit+' BP from limitations. <small>Category limits still apply.</small>'+(p.error?'<div class="warning">'+esc(p.error)+'</div>':'');
+}
+const gohOldEdit=edit;
+edit=function(id){
+ gohOldEdit(id);
+ const f=$('charForm'),c=get(id);
+ if(!f||c?.kind!=='ranger')return;
+ const anchor=f.querySelector('.sheet-preset');
+ if(!anchor)return;
+ anchor.insertAdjacentHTML('afterend',gohForm(c));
+ gohUpdate();
+ const archetype=$('gohArch');
+ const budgetText=[...f.querySelectorAll('small')].find(e=>e.textContent.startsWith('Starting ranger:'));
+ const baseHelp=budgetText?.textContent;
+ const updatePreset=()=>{
+  if($('presetBtn'))$('presetBtn').disabled=!!archetype.value;
+  if(budgetText)budgetText.textContent=archetype.value?archetype.value+': '+gohBases[archetype.value].bp+' starting BP. Check the archetype chapter for spending limits, abilities and equipment.':baseHelp;
+ };
+ archetype.onchange=()=>{gohUpdate();updatePreset()};
+ updatePreset();
+ const submit=f.onsubmit;
+ f.onsubmit=e=>{
+  e.preventDefault();
+  if($('eActive').checked&&c.active===false&&partyRangers().length>=4){submit(e);return}
+  const g=gohCollect(),p=gohCheck(g);
+  if(p.error){$('gohSheet').open=true;toast(p.error);return}
+  if(g.archetype||g.traits.length||g.major||g.minor.length||g.notes)c.gathering=g;
+  else delete c.gathering;
+  submit(e);
+ };
+};
+const gohOldCard=card;
+card=function(c,battle=false){
+ const h=gohOldCard(c,battle),s=gohCardText(c),note=c.gathering?.notes;
+ if(!s&&!note&&!gohExtra[c.type])return h;
+ return h.replace('</article>','<details class="note"><summary>Gathering of Heroes</summary>'+(s?'<p>'+esc(s)+'</p>':'')+(note?'<p>'+esc(note)+'</p>':'')+(gohExtra[c.type]?'<p>'+esc(gohExtra[c.type][5])+'</p>':'')+'<small>Apply situational effects at the table.</small></details></article>');
+};
+const gohOldRules=rules;
+rules=function(){
+ return '<section class="panel stack section"><div class="eyebrow">Campaign ruleset</div><h2>Standard Edition + A Gathering of Heroes</h2><p>Start with The Missing / The Deserted Village. Use Standard Edition for its briefing and turn sequence. The supplement’s character options and recruits are available immediately.</p><div class="row"><button onclick="show(\'roster\')">Ranger sheets</button><button onclick="show(\'recruit\')">Recruit companions</button><a href="'+gohOfficial+'" target="_blank" rel="noopener noreferrer">Publisher’s supplement reference</a></div><small>Use the supplement for full archetype packages, situational modifiers, and later missions. The app can load an archetype baseline, but does not automate situational rules.</small></section>'+gohOldRules();
+};
+const gohCommand=dashboard;
+dashboard=function(){
+ return gohCommand()+'<section class="panel stack section"><div class="eyebrow">Campaign ruleset</div><div class="row between"><div><h3>Standard Edition + A Gathering of Heroes</h3><small>Start with The Missing. Advanced options are available from the first scenario.</small></div><button onclick="show(\'rules\')">Player guide</button></div></section>';
+};
+
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
