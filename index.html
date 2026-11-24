@@ -1527,5 +1527,113 @@ if(typeof goh2GuideHoardPanel==='function'){
 for(const [name,xp] of [['Bear',4],['Boar',3],['Tiger',4],['Lion',0]]){
  if(!monsters[name])monsters[name]=[...gohExtra[name][1],xp,gohExtra[name][5]];
 }
+
+/* Burning Light route and one-time finale search. Standard Edition pp. 90–95, 112–113. */
+function burnRoute(){
+ const list=missions['Burning Light'], explored=new Set(S.history.filter(h=>h.mission==='Burning Light'&&list.slice(0,8).includes(h.scenario)).map(h=>h.scenario));
+ const opened=S.go3Burn?.searched||null, finished=S.history.some(h=>h.mission==='Burning Light'&&h.scenario===list[8]);
+ const adj=[[2],[2],[0,1,3,4,5],[2],[2],[2,6,7],[5],[5]];
+ let available=finished?[]:opened?[list[8]]:!explored.size?list.slice(0,3):list.slice(0,8).filter((t,i)=>!explored.has(t)&&adj[i].some(j=>explored.has(list[j])));
+ const start=S.history.filter(h=>h.mission==='Burning Light'&&explored.has(h.scenario)).at(-1);
+ const lost=start&&(start.participants||[]).some(c=>c.kind==='ranger')&&!(start.participants||[]).some(c=>c.kind==='ranger'&&!get(c.id)?.dead&&!get(c.id)?.retired&&get(c.id));
+ return {list,explored,opened,finished,lost,available:lost?[]:available};
+}
+function burnLocked(){
+ const r=burnRoute();return !r.finished&&!r.lost&&r.explored.size>0&&S.mission==='Burning Light'&&!S.customScenario;
+}
+function burnLockMessage(){
+ toast('The party cannot recruit or reorganize companions between Burning Light areas.');
+}
+function burnPicker(){
+ if(S.mission!=='Burning Light'||S.customScenario)return '';
+ const r=burnRoute(), ex=r.list.filter(x=>r.explored.has(x));
+ if(S.session)return '';
+ let status=r.finished?'The mission is already recorded.':r.lost?'No original ranger remains. This expedition is over.':r.opened?'Final search recorded. Continue to the finale.':!ex.length?'Begin at the Gatehouse, Ruined Chapel, or Courtyard.':r.available.length?'Move through explored locations and choose an adjacent unexplored area.':'All eight areas are explored. Choose a location for the final search.';
+ return '<section class="panel stack section"><div class="eyebrow">Burning Light · Convent route</div><h2>Convent exploration</h2><p>'+esc(status)+'</p>'+(ex.length?'<small>Explored '+ex.length+' / 8: '+esc(ex.join(', '))+'</small>':'')+r.available.map(x=>'<button onclick="go2Open(\'Burning Light\','+esc(JSON.stringify(x))+')">'+esc(x)+'</button>').join('')+(ex.length&&!r.opened&&!r.finished&&!r.lost?'<button onclick="burnSearchPrompt()">Choose final search location</button><small>You can search any explored area once. Making the search ends exploration.</small>':'')+(r.opened&&!r.finished?'<small>Final search: '+esc(r.opened)+'. '+(S.go3Burn?.found?'The Decanter was found. Assign it to a living, deployed figure before commencing.':'The Decanter was not found. Play the finale to escape.')+'</small>':'')+'</section>';
+}
+function burnSearchPrompt(){
+ const r=burnRoute();if(S.session||r.finished||r.lost||r.opened||!r.explored.size)return;
+ const d=$('editor');
+ d.innerHTML='<form id="burnForm" class="stack"><h2>Final search</h2><p>Once you choose, you proceed to the finale. There is no second search.</p><label for="burnWhere">Explored location</label><select id="burnWhere" required><option value="">Choose a location</option>'+opts(r.list.filter(x=>r.explored.has(x)))+'</select><button class="primary">Search this location</button><button type="button" onclick="$(\'editor\').close()">Cancel</button></form>';
+ if(!d.open)d.showModal();
+ $('burnForm').onsubmit=e=>{e.preventDefault();if(burnSearch($('burnWhere').value))d.close();};
+}
+function burnSearch(name){
+ const r=burnRoute();if(S.session||r.finished||r.lost||r.opened||!r.explored.has(name))return false;
+ if(!confirm('Make the only final search at '+name+'? This ends exploration.'))return false;
+ const id=[135,294,383,456,533,688,734,892][r.list.indexOf(name)];
+ const found=id===533;
+ S.go3Burn={searched:name,found,carrier:''};
+ go2Open('Burning Light',r.list[8]);
+ toast(found?'Decanter found. Assign its carrier before starting the finale.':'Decanter not found. Continue to the finale to escape.');
+ return true;
+}
+function burnCarrier(id){
+ const c=get(id);if(!S.go3Burn?.found||!c||c.active===false||c.dead||c.retired||c.hp<=0)return;
+ if(S.session){
+  if(S.session.participants.indexOf(id)<0||G().post)return;
+  const current=get(S.go3Burn.carrier);
+  if(current&&current.hp>0&&!S.session.downed.includes(current.id))return;
+  if(!confirm('Is '+c.name+' in contact with the downed carrier and picking up the Decanter?'))return;
+  appendField(c.name+' picked up the Decanter.');
+ }
+ S.go3Burn.carrier=id;commit();
+}
+function burnCarrierHTML(){
+ if(S.mission!=='Burning Light'||S.customScenario||S.scenario!=='The Final Showdown'||!S.go3Burn?.found)return '';
+ const c=get(S.go3Burn.carrier),live=!!S.session;
+ const choices=active().filter(x=>x.hp>0&&!x.dead&&!x.retired&&(!live||S.session.participants.includes(x.id)));
+ const pick=!live||(!G().post&&(!c||c.hp<=0||S.session.downed.includes(c.id)));
+ return '<section class="panel stack section"><div class="row between"><h3>Decanter of Burning Light</h3><small>No item slot used</small></div><p>'+(c?'Carrier: '+esc(c.name)+(c.hp<=0?' · downed':''):'No carrier assigned.')+'</p>'+(pick?'<label for="burnCarrier">Choose living '+(live?'hero in contact':'deployed carrier')+'</label><select id="burnCarrier" onchange="burnCarrier(this.value)"><option value="">Choose a figure</option>'+choices.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===c?.id?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>':'')+'</section>';
+}
+const burnPriorChoices=go2CandidateList;
+go2CandidateList=function(){
+ const last=S.history[0];
+ return last?.mission==='Burning Light'&&last.scenario!=='The Final Showdown'?burnRoute().available.map(x=>['Burning Light',x]):burnPriorChoices();
+};
+const burnPriorCampaign=campaign;
+campaign=function(){return burnPicker()+burnPriorCampaign()+(!S.session?burnCarrierHTML():'')};
+const burnPriorPlay=play;
+play=function(){return S.session?burnCarrierHTML()+burnPriorPlay():burnPriorPlay()};
+const burnPriorPrepare=prepareMission;
+prepareMission=function(){
+ if(S.session||S.mission!=='Burning Light'||S.customScenario)return burnPriorPrepare();
+ const r=burnRoute();
+ if(!r.available.includes(S.scenario)){
+  toast(r.finished?'The Burning Light finale has already been recorded.':r.lost?'No original ranger remains. The expedition is over.':S.scenario===r.list[8]?'Complete an eligible area and make the final search before starting the finale.':'Choose an available area on the convent route.');
+  show('campaign');return;
+ }
+ if(S.scenario===r.list[8]&&S.go3Burn?.found){
+  const c=get(S.go3Burn.carrier);
+  if(!c||c.hp<=0||c.dead||c.retired||c.active===false){toast('Assign the Decanter to a living, deployed carrier first.');show('campaign');return}
+ }
+ burnPriorPrepare();
+ if(S.session&&S.scenario===r.list[8]&&S.go3Burn?.found&&!S.session.burnSearchAward){
+  S.session.burnSearchAward=true;S.scenarioXP+=100;appendField('Final search: Decanter found (+100 XP).');commit();
+ }
+};
+const burnPriorRoster=setPartyActive;
+setPartyActive=function(id){
+ if(burnLocked()&&get(id)?.kind==='companion'){burnLockMessage();return}
+ return burnPriorRoster(id);
+};
+const burnPriorRecruit=recruitTemplate;
+recruitTemplate=function(t){if(burnLocked()){burnLockMessage();return}return burnPriorRecruit(t)};
+const burnPriorAdd=addCompanion;
+addCompanion=function(...args){if(burnLocked()){burnLockMessage();return}return burnPriorAdd(...args)};
+const burnPriorEdit=edit;
+edit=function(id){
+ burnPriorEdit(id);
+ if(burnLocked()&&get(id)?.kind==='companion'&&$('cpActive'))$('cpActive').disabled=true;
+};
+
+const burnPriorNote=noteReveal;
+noteReveal=function(id,who,applyXP){
+ if(S.mission==='Burning Light'&&[135,294,383,456,533,688,734,892].includes(Number(id))){
+  toast('Use the one-time Final search control between scenarios.');return null;
+ }
+ return burnPriorNote(id,who,applyXP);
+};
+
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
