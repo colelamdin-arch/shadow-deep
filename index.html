@@ -767,5 +767,765 @@ dashboard=function(){
  return gohCommand()+'<section class="panel stack section"><div class="eyebrow">Campaign ruleset</div><div class="row between"><div><h3>Standard Edition + A Gathering of Heroes</h3><small>Start with The Missing. Advanced options are available from the first scenario.</small></div><button onclick="show(\'rules\')">Player guide</button></div></section>';
 };
 
+
+/* Expansion missions: factual setup data and original table prompts. */
+const go2Missions={
+ 'Blood Moon':['Claw and Fang'],
+ 'Temple of Madness':['The Laughing Columns','Pit of Ghouls','The Incantation Lock','The Mirror Enduring'],
+ 'Menagerie':['The Unintended Ambush','Counter Ambush'],
+ 'Ghost Stone':['Rear Guard','The Gnoll Encampment','The Distraction','Destroy the Stone'],
+ 'Incinerator':['Fire Drop','Prison Break']
+};
+Object.assign(missions,go2Missions);
+const go2High=['Ace','King','Queen','Jack','10','9','8','7','6','5'];
+const go2Range=(last)=>['Ace','2','3','4','5','6','7','8','9','10','Jack','Queen','King'].slice(0,last);
+const go2={
+ 'Claw and Fang':{p:72,end:78,event:76,size:'30 × 30 in',deck:go2Range(13),loop:true,foes:{'Giant Fly':3,'Giant Rat':2,Wolf:1},obj:[['Reveal the culprit',20,1],['Innocent auxiliary survives',10,3],['Villager survives',10,3]],counter:'Investigation score',max:99,start:1,challenge:{'Giant Fly':1,'Giant Rat':1},intro:'Investigate High Rock without revealing clue results ahead of play.',layout:'Manor with four rooms, pond and boat, barn and pen, woods, and a wagon. Set out eight clue markers. Pick the four auxiliary companions using the book.',notes:'14″ sight. Skip creature activations in turn 1. Resolve the manor and outdoor clues separately. When investigation reaches 10, resolve the matching reveal. Apply the printed ending conditions.',special:'Choose the level 0–5 or 6–10 event table. Reshuffling changes how certain repeat events are handled.'},
+ 'The Laughing Columns':{p:85,end:87,event:86,size:'30 × 30 in',foes:{'Temple Guardian':4},obj:[['Column result recorded',3,12]],challenge:{'Temple Guardian':2},intro:'Find an exit in a dark chamber of shifting columns.',layout:'Three rows of four columns; doorway centered on one side and two treasure markers by the far corners.',notes:'Heroes have 6″ line of sight. The column checks and exit discoveries use numbered notes. At each turn end add one Temple Guardian at a location from the book.',tick:'guardian',hp:'8'},
+ 'Pit of Ghouls':{p:88,end:90,event:90,size:'24 × 24 in',foes:{Ghoul:8},obj:[['Wheel turned',3,4]],challenge:{Ghoul:2},intro:'Open the far exit of a chamber overrun with ghouls.',layout:'Opposite ledges with two ladders, four roped chandelier supports, four wheels, four trapdoors and three statues.',notes:'Roll once on the Ghoul Table each turn. Check which statues, ropes and wheels you can use. Normal wheel check TN10; challenge TN12.',tick:'ghoul',hp:'8'},
+ 'The Incantation Lock':{p:91,end:92,event:91,size:'24 × 24 in',foes:{Cultist:3},obj:[],challenge:{Cultist:3},intro:'Discover how to open a rune-covered doorway.',layout:'Two doors, two wall points of interest, and disks marked 3, 5, 7 and 9.',notes:'Resolve the opening check, disk and note instructions from the book. Roll on the encounter table at each turn end, applying the printed result modifier.',tick:'lock',hp:'8'},
+ 'The Mirror Enduring':{p:93,end:95,event:94,size:'30 × 24 in',foes:{'Temple Guardian Archer':3,Trekatis:1,Greviks:1},obj:[],intro:'Reach the far end of a room divided by fire and a hanging net.',layout:'Single entrance, fire line, chain net, three archers and two named enemies at the far side.',notes:'Fire: Will TN14. Net fastening: Climb TN14 or Shoot TN20. The fight ends when Trekatis falls or the party is lost. Use the corresponding numbered note at each of the first eight turn ends.',tick:'mirror'},
+ 'The Unintended Ambush':{p:111,end:113,event:113,size:'24 × 24 in',deck:go2High,until:8,foes:{Bear:1,'Gnoll Beast-handler':2,'Temple Guardian Archer':2,Warden:1},obj:[['Investigated clue',10,1]],challenge:{Tiger:1},challenge2:{Tiger:1,'Gnoll Beast-handler':1},intro:'Your camp is caught between a pursued beast and its pursuers.',layout:'Broken stones around your camp, with one clue marker. Choose the one hero who starts upright at random.',notes:'10″ sight. Opening Will test can include Survival. Set TN by difficulty. Remove the clue after turn 5. Stop drawing after turn 8, but finish the fight under the printed end conditions.'},
+ 'Counter Ambush':{p:114,end:117,event:116,size:'30 × 30 in',turns:10,deck:[...go2High,'4','3'],side:'wagon',foes:{'Gnoll Beast-handler':4,'Temple Guardian Archer':3,'Temple Guardian':2},obj:[['Wagon investigated',8,5],['No wagons escaped',15,1]],challenge:{'Temple Guardian':1,Lion:1},challenge2:{'Temple Guardian':1,Lion:1},intro:'Catch a convoy before the wagons get away.',layout:'Five wagons around a wreck; two wagons are driven. Place the opposing figures as indicated and deploy from the table edge.',notes:'Choose the direction and roll for the approach. Driven wagons move at turn end. Use the separate black wagon deck when investigating a wagon.'},
+ 'Rear Guard':{p:123,end:126,event:125,size:'30 × 30 in',turns:9,deck:go2High,foes:{},obj:[['Wounded soldier survived',5,10],['Found half-written letter',8,1],['Found stone ring',8,1]],challenge:{Spectre:2},intro:'Help wounded soldiers reach the exit through a spectre attack.',layout:'Deploy in the center. Place eight wounded soldiers along the spectre edge and set out the initial clue.',notes:'During the first Creature phase, add eight Spectres and skip their actions. Soldiers act after companions. Resolve escapes at the end of turn 9. Keep the survival and clue results for the later mission.',tick:null},
+ 'The Gnoll Encampment':{p:127,end:130,event:130,size:'30 × 30 in, plus tent interior',deck:go2High,start:3,foes:{'Gnoll Archer':6},obj:[['Scrolls secured',20,1],['Map secured',12,1],['Mask secured',12,1]],counter:'Alarm raised (0=no, 1=yes)',max:1,intro:'Approach a gnoll camp under cover and see what the central tent holds.',layout:'Six numbered tents around a large central tent. Prepare a separate 10″ square interior.',notes:'Apply opening Survival and Traps checks. Track alarm state and stop using the surprise benefits when it is raised. No event cards before turn 3. Resolve the tent setup only upon entry.'},
+ 'The Distraction':{p:132,end:137,event:137,size:'30 × 36 in',deck:go2High,loop:true,start:3,foes:{'Gnoll Fighter':5,Cultist:2},obj:[['Supply pile burned',8,6]],counter:'Alarm raised (0=no, 1=yes)',max:1,intro:'Set supplies alight to draw the enemy away from the Ghost Stone.',layout:'River along one long side, five supply piles on land and one aboard the boat.',notes:'Start events in turn 3 unless the alarm goes up earlier. Record the number of supply piles burned; the last scenario uses that total.'},
+ 'Destroy the Stone':{p:137,end:141,event:141,size:'30 × 36 in',deck:go2High,loop:true,side:'opening',foes:{'Spectral Horseman':1,Spectre:2,'Cultist Leader':1,Cultist:4,Werewolf:1,'Gnoll Shaman':1,'Gnoll Sergeant':2,'Gnoll Archer':3},obj:[['Participated',50,1],['Ghost Stone destroyed',100,1]],counter:'Supply piles burned in The Distraction',max:6,intro:'Escort Nesra close enough to bring down the Ghost Stone.',layout:'Stone at the far end, defenders around it, a wagon and ballista to one side, and two clues. Add Nesra as a scenario ally.',notes:'Use the opening event for creatures only. Previous discoveries affect Nesra’s attempt. Set the countdown from the number of burned supply piles and track the blast manually. Creature kills do not earn XP here.',noKill:true},
+ 'Fire Drop':{p:147,end:150,event:150,size:'24 × 30 in',deck:go2Range(12),foes:{Skeleton:6},obj:[],challenge:{'Giant Rat':4},counter:'Floor lost (inches)',max:30,intro:'Reach a high ledge and its locked door before the floor gives way.',layout:'Place the ledge and door on the far edge. Six Skeletons line up in front; three clues are near the ledge.',notes:'Climb TN12. Open the exit with Pick Lock TN14 or Strength TN18. Track floor loss after every event. Do not restore Health automatically between this scenario and Prison Break.',hp:'none'},
+ 'Prison Break':{p:151,end:153,event:153,size:'18 × 18 in plus room space',deck:go2Range(9),start:2,side:'door',foes:{'Temple Guardian':3,'Gnoll Archer':2},obj:[['Gorbin joins',5,1],['Warden defeated',0,1]],challenge:{'Temple Guardian':1},intro:'Find the exit among eight doors before the prison guards rally.',layout:'Three doors on each side wall and two opposite your entry. Leave space for three six-inch rooms.',notes:'Skip turn-one creature actions. Draw events from turn 2 normally; turn 1 in the highest-level challenge. The separately shuffled door deck keeps the exit in the last four doors.'}
+};
+const go2BookOrder=['The Missing','The Beacon Tower','Descent into Darkness','Blood Moon','Burning Light','Menagerie','Temple of Madness','Ghost Stone','Incinerator'];
+const go2TempleNext={'The Laughing Columns':['Pit of Ghouls','The Incantation Lock'],'Pit of Ghouls':['The Incantation Lock','The Mirror Enduring'],'The Incantation Lock':['Pit of Ghouls','The Mirror Enduring']};
+const go2Prefs=()=>S.go2Prefs||{};
+const go2Details=()=>S.customScenario?null:go2[S.scenario];
+
+
+const go2RulesLink='https://modiphius.us/products/rangers-of-shadow-deep-a-gathering-of-heroes';
+let go2DBPromise,go2PDFUrl,go2ReferenceToken=0;
+function go2DB(){
+ if(!go2DBPromise)go2DBPromise=new Promise((resolve,reject)=>{
+  if(typeof indexedDB==='undefined'){reject(new Error('Browser storage is unavailable.'));return}
+  const req=indexedDB.open('shadowdeep-gathering-reference',1);
+  req.onupgradeneeded=()=>req.result.createObjectStore('books');
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ return go2DBPromise;
+}
+async function go2Book(action,file){
+ const db=await go2DB();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('books',action==='get'?'readonly':'readwrite'),store=tx.objectStore('books');
+  const req=action==='get'?store.get('gathering'):action==='put'?store.put(file,'gathering'):store.delete('gathering');
+  tx.oncomplete=()=>resolve(req.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ });
+}
+async function go2InstallBook(el,p){
+ const f=el.files?.[0];if(!f)return;
+ if(f.size>50*1024*1024||await f.slice(0,5).text()!=='%PDF-'){toast('Select your Gathering of Heroes PDF (under 50 MB).');return}
+ try{await go2Book('put',f);if(go2PDFUrl)URL.revokeObjectURL(go2PDFUrl);go2PDFUrl=null;openGohReference(p);toast('Private PDF saved on this device. Not uploaded.');}
+ catch{toast('Could not save this PDF to browser storage.');}
+}
+async function go2ForgetBook(p){
+ if(!confirm('Remove the local Gathering of Heroes reference PDF? Your campaign save is not affected.'))return;
+ try{await go2Book('delete');if(go2PDFUrl)URL.revokeObjectURL(go2PDFUrl);go2PDFUrl=null;openGohReference(p);}
+ catch{toast('Could not remove the local PDF.');}
+}
+async function openGohReference(p=4){
+ p=Math.max(1,Math.min(192,Math.floor(n(p,4))));
+ let d=$('go2BookDialog');if(!d){d=document.createElement('dialog');d.id='go2BookDialog';document.body.appendChild(d);}const token=++go2ReferenceToken;
+ d.innerHTML='<div class="stack"><div class="row between"><div><div class="eyebrow">Personal supplement · local only</div><h2>A Gathering of Heroes</h2></div><button type="button" onclick="$(\'go2BookDialog\').close()">Close reference</button></div><div class="row"><button type="button" onclick="openGohReference('+(p-1)+')" '+(p===1?'disabled':'')+'>Previous</button><label for="go2BookPage">Printed page</label><input aria-label="Printed page" id="go2BookPage" type="number" min="1" max="192" value="'+p+'" onchange="openGohReference(this.value)"><button type="button" onclick="openGohReference('+(p+1)+')" '+(p===192?'disabled':'')+'>Next</button></div><div id="go2BookBody" class="stack">Opening local reference…</div></div>';
+ if(!d.open)d.showModal();
+ let file=null;try{file=await go2Book('get')}catch{}
+ if(token!==go2ReferenceToken||!$('go2BookBody')||!d.open)return;
+ const upload='<label for="go2PDF">Choose your own Gathering of Heroes PDF</label><input id="go2PDF" type="file" accept="application/pdf,.pdf" onchange="go2InstallBook(this,'+p+')"><small>The PDF stays in this browser. It is not uploaded or included in public code or campaign backups.</small>';
+ if(!file){$('go2BookBody').innerHTML='<p>Add your copy once to open mission maps and revealed rules without leaving the tracker.</p>'+upload;return}
+ if(!go2PDFUrl)go2PDFUrl=URL.createObjectURL(file);
+ const href=esc(go2PDFUrl+'#page='+(p+1));
+ $('go2BookBody').innerHTML='<div class="row"><a href="'+href+'" target="_blank" rel="noopener">Open page in new tab</a><button type="button" onclick="go2ForgetBook('+p+')">Remove local copy</button></div><iframe title="Gathering of Heroes PDF, printed page '+p+'" src="'+href+'" style="width:100%;height:min(65dvh,690px);border:1px solid var(--edge);background:#e9e6dd"></iframe><small>If this browser cannot display an embedded PDF, use Open page in new tab.</small><details><summary>Replace the local PDF</summary>'+upload+'</details>';
+}
+function go2Open(missionName,scenarioName){
+ if(S.session){toast('Finish or abandon the current encounter first.');return}
+ if(!missions[missionName]?.includes(scenarioName))return;
+ const changed=S.scenario!==scenarioName||S.mission!==missionName||!!S.customScenario;
+ S.mission=missionName;S.scenario=scenarioName;S.customScenario='';
+ if(changed){S.challenge=!!(go2[scenarioName]&&go2Prefs()[scenarioName]?.difficulty);S.roundLimit=missionData[scenarioName]?.turns??0;}
+ commit();show('campaign');
+}
+const go2MissionLibrary=function(){
+ const history=S.history||[], last=history[0];
+ const groups=go2BookOrder.map((name,i)=>{
+  const list=missions[name], started=list.some(t=>history.some(x=>x.mission===name&&x.scenario===t));
+  const activeTrack=S.mission===name;
+  const status=activeTrack?'Selected':started?'Progress recorded':go2Missions[name]?'Gathering of Heroes':'Standard Edition';
+  return '<details class="panel" '+(activeTrack?'open':'')+'><summary><b>'+esc(name)+'</b> · '+list.length+' '+(list.length===1?'scenario':'scenarios')+' · '+status+'</summary><div class="stack section">'+(name==='Burning Light'?'<small>Start from the allowed entrance areas, follow the convent’s adjacency rules, then take the final search and finale when permitted.</small><button type="button" onclick="pageViewer(95)">Open Standard Edition route reference</button>':'')+list.map(t=>{
+   const done=history.some(x=>x.mission===name&&x.scenario===t);
+   return '<div class="row between"><span>'+esc(t)+(done?' <small class="good">· recorded</small>':'')+'</span><button type="button" '+(S.session?'disabled':'')+' onclick="go2Open('+esc(JSON.stringify(name))+','+esc(JSON.stringify(t))+')">'+(S.scenario===t?'Open briefing':'Select scenario')+'</button></div>';
+  }).join('')+'</div></details>';
+ }).join('');
+ return '<details id="go2Library" class="panel stack section"'+(!S.session?' open':'')+'><summary><b>Mission library</b> · all nine missions from these two books</summary><div class="stack section"><p>Use the suggested campaign order below or choose a scenario directly. Selecting a briefing does not start it or reveal its hidden outcomes.</p><div class="row"><button onclick="openGohReference(4)">Private book &amp; suggested order</button></div>'+groups+'</div></details>';
+};
+const go2PriorCampaign=campaign;
+campaign=function(){return go2Camp()+go2PriorCampaign()+go2MissionLibrary()};
+function go2SetPref(k,v){
+ if(S.session||!go2Details())return;
+ const p=((S.go2Prefs||={})[S.scenario]||={});
+ if(k==='difficulty')p[k]=Math.max(0,Math.min(['Menagerie','Incinerator'].includes(S.mission)?2:1,Math.floor(n(v))));
+ if(k==='band')p[k]=Number(v)===1?1:0;
+ if(k==='difficulty')S.challenge=!!p[k];
+ commit();
+}
+function go2Shuffle(arr){for(let i=arr.length-1;i>0;i--){let j=rnd(i+1)-1;[arr[i],arr[j]]=[arr[j],arr[i]]}return arr;}
+function go2Deck(m){return (m.deck||[]).map(x=>'Red '+x)}
+function go2StartCount(m){if(S.scenario!=='Destroy the Stone')return 0;const last=S.history.find(x=>x.scenario==='The Distraction');return Math.min(6,(last?.objectives||[]).filter(o=>o.done&&/^Supply pile burned/.test(o.text)).length);}
+function go2State(){return S.session.go2}
+function go2Challenge(){return go2State()?.difficulty||0}
+for(const [t,m] of Object.entries(go2)){
+ missionData[t]={p:m.p,end:m.end,turns:m.turns||0,cards:m.deck?.length||0,foes:m.foes,obj:m.obj,events:[],go2:m};
+}
+const go2OldPreset=presetCards;
+presetCards=function(m){return m?.go2?go2Deck(m.go2):go2OldPreset(m)};
+const go2OldMissionRef=missionReference;
+missionReference=function(){
+ const m=go2Details();if(!m)return go2OldMissionRef();
+ const live=!!S.session,p=go2Prefs()[S.scenario]||{},men=S.mission==='Menagerie',inc=S.mission==='Incinerator';
+ const diff=men?['Standard','Challenge level 1','Challenge level 2']:inc?['Standard','Challenge','Challenge: 3–4 level 10+ rangers']:['Standard','Challenge'];
+ const starter=Object.entries(m.foes).map(([t,q])=>q+' '+t).join(' · ');
+ return '<section class="panel stack section briefing"><div class="eyebrow">Gathering of Heroes · '+(live?'In progress':'Preparation')+'</div><h2>'+esc(S.scenario)+'</h2><p>'+esc(m.intro)+'</p><div class="stat"><small>Table</small><b>'+esc(m.size)+'</b></div><div class="note"><b>Terrain &amp; deployment</b><p>'+esc(m.layout)+'</p></div>'+(starter?'<p><b>Initial roster:</b> '+esc(starter)+'</p>':'')+'<div class="note"><b>At the table</b><p>'+esc(m.notes)+'</p>'+(m.special?'<p>'+esc(m.special)+'</p>':'')+'</div>'+(!live?'<div class="fields"><label for="go2Diff">Difficulty<select id="go2Diff" onchange="go2SetPref(\'difficulty\',this.selectedIndex)">'+opts(diff,diff[p.difficulty||0])+'</select></label>'+(S.scenario==='Claw and Fang'?'<label for="go2Band">Event table<select id="go2Band" onchange="go2SetPref(\'band\',this.selectedIndex)">'+opts(['Level 0–5','Level 6–10'],p.band?'Level 6–10':'Level 0–5')+'</select></label>':'')+'</div>':'')+'<div class="row"><button onclick="openGohReference('+m.p+')">Private setup · p. '+m.p+'</button><button class="primary" onclick="prepareMission()">'+(live?'Resume scenario':'Commence scenario')+'</button>'+(live?'<button class="danger" onclick="abandonEncounter()">Abandon / undo start</button>':'')+'</div><small>Numbered notes, clues and special events are revealed at the table, not in advance.</small></section>';
+};
+const go2OldPrepare=prepareMission;
+prepareMission=function(){
+ const m=go2Details();if(!m||S.session||encounterExists())return go2OldPrepare();
+ const config=go2Prefs()[S.scenario]||{},difficulty=config.difficulty||0,band=config.band||0,meta=missionData[S.scenario];
+ const prev=meta.foes,foes={...prev};
+ if(S.scenario==='Claw and Fang'&&(band||difficulty)){delete foes.Wolf;foes['Grim Wolf']=1;}
+ for(const [name,q] of Object.entries((difficulty>1?m.challenge2||m.challenge:difficulty?m.challenge:null)||{}))foes[name]=(foes[name]||0)+q;
+ if(S.scenario==='Fire Drop'&&difficulty>1)foes['Skeletal Ogre']=1;
+ if(S.mission==='Incinerator'&&difficulty>1&&(partyRangers().length<3||partyRangers().some(r=>n(r.level)<10))){toast('This challenge requires three or four rangers at level 10 or higher.');return;}
+ if(S.scenario==='Prison Break'&&difficulty>1){delete foes['Gnoll Archer'];foes['Gnoll Sergeant']=2;}
+ const priorChallenge=S.challenge;S.challenge=!!difficulty;
+ try{meta.foes=foes;go2OldPrepare();}finally{meta.foes=prev;}
+ if(!S.session){S.challenge=priorChallenge;return}
+ const state=S.session.go2={difficulty,band,count:go2StartCount(m),roundDone:{},sideDeck:[],sideDrawn:[],next:null,result:'',cycle:0,npc:[],manualAwards:{},killCredit:0};
+ if(m.side==='wagon')state.sideDeck=go2Shuffle(['Ace','King','Queen','Jack','10','9','8','7','6','5']).map(x=>'Black '+x);
+ if(m.side==='door'){
+  const other=go2Shuffle(['2','3','4','5','6','7','8']);
+  state.sideDeck=[...go2Shuffle(['Ace',...other.slice(0,3)]),...go2Shuffle(other.slice(3))].map(x=>'Black '+x);
+ }
+ if(S.scenario==='Rear Guard')state.npc=Array.from({length:8},(_,i)=>'Wounded soldier '+(i+1));
+ if(S.scenario==='Claw and Fang')state.npc=['Orla','Seb','Covin','Nicolan'];
+ if(S.scenario==='Destroy the Stone')state.npc=['Nesra'];
+ if(m.side==='opening'&&S.deck.length){state.opening=S.deck.pop();appendField('Opening event (creatures only): '+state.opening);}
+ const missing=Object.keys(foes).filter(k=>!monsters[k]);
+ if(missing.length)appendField('Tabletop setup requires manually recording: '+missing.join(', '));
+ appendField('Gathering of Heroes setup prepared. Use the battlefield briefing for positioning.');
+ commit();
+};
+
+
+const go2OldDraw=drawCard;
+drawCard=function(){
+ const m=go2Details(),x=S.session?.go2;
+ if(!m||!x)return go2OldDraw();
+ if(!guideEventExpected()){toast('No regular event draw this turn.');return}
+ if(G().events[S.turn]){toast('The event for this turn was already drawn.');return}
+ if(!S.deck.length)return;
+ if(S.drawn.length&&!fieldState().resolved.includes(S.drawn.length)){toast('Finish resolving the revealed event first.');return}
+ const card=S.deck.pop();S.drawn.unshift(card);G().events[S.turn]=S.drawn.length;
+ appendField('Event revealed: '+card+(x.cycle?' · deck pass '+(x.cycle+1):''));
+ if(!S.deck.length&&m.loop){S.deck=go2Shuffle(go2Deck(m));x.cycle++;}
+ commit();
+};
+const go2OldGuideDraw=guideEventDraw;
+guideEventDraw=function(){return S.session?.go2?drawCard():go2OldGuideDraw()};
+const go2OldExpected=guideEventExpected;
+guideEventExpected=function(){
+ const m=go2Details(),x=S.session?.go2;
+ if(!m||!x)return go2OldExpected();
+ if(!m.deck||!S.deck.length&&!G().events[S.turn])return false;
+ let start=m.start||1;
+ if(S.scenario==='The Distraction'&&x.count)start=1;
+ if(S.scenario==='Destroy the Stone')start=1+Math.ceil(x.count/2);
+ if(S.scenario==='Prison Break'&&x.difficulty>1)start=1;
+ return S.turn>=start&&S.turn<=(m.until||Infinity);
+};
+const go2EventHints={
+ 'Claw and Fang':{'Ace':'Check the barn encounter.','2':'Check the Room B encounter.','3':'Check the Room D encounter.','4':'Resolve the howl and any added creature.','5':'Resolve the howl and any added creature.','6':'Resolve the pond emergence.','7':'Check the wagon for the revealed figure.','8':'Resolve a sudden fly attack.','9':'Resolve a sudden fly attack.','10':'Resolve the found weapon.','Jack':'A wolf arrives in a random corner.','Queen':'A wolf arrives in a random corner.','King':'Apply the moonlight effect on the next turn.'},
+ 'The Unintended Ambush':{'Ace':'A bear enters from a random corner.','King':'A tiger enters from a random corner.','Queen':'A boar enters from a random corner.','8':'Apply the event check to eligible heroes.','7':'Guardian archers arrive in a random corner.'},
+ 'Counter Ambush':{'Ace':'A bear arrives by a wagon.','King':'A tiger arrives by a wagon.','Queen':'A boar arrives by a wagon.','Jack':'Giant snakes arrive at a wagon.','10':'Flies arrive in a random corner.','9':'Blood bats arrive in a random corner.','8':'Beast-handlers arrive at the wreck.','7':'Beast-handlers arrive at the wreck.','6':'Place the warden in a random corner.','5':'Resolve a wagon fire.','4':'A tiger enters as a temporary ally.','3':'Check whether a driven wagon breaks down.'},
+ 'Rear Guard':{'Ace':'A spectre arrives on the right flank.','King':'A spectre arrives on the left flank.','Queen':'A spectre arrives at the spectre edge.','Jack':'A gnoll sergeant arrives in a random corner.','10':'Another wounded soldier arrives on the right flank.','9':'Another wounded soldier arrives on the left flank.','8':'Two gnoll archers arrive in a random corner.','7':'Resolve the effect on a randomly selected wounded soldier.','6':'Will TN14 for the affected heroes and soldiers; failures skip their next activation.','5':'A spectre arrives on a random edge other than the exit.'},
+ 'The Gnoll Encampment':{'Ace':'Reinforcements arrive at tent 1.','King':'Reinforcements arrive at tent 2.','Queen':'Reinforcements arrive at tent 3.','Jack':'Reinforcements arrive at tent 4.','10':'Reinforcements arrive at tent 5.','9':'Reinforcements arrive at tent 6.','8':'A vulture arrives on the large tent.','7':'Apply the effect outside the tent.','6':'Spectres arrive in a random corner.','5':'Resolve the persistent hazard.'},
+ 'The Distraction':{'Ace':'An ogre arrives in the far-left corner.','King':'Gnoll archers arrive on the encampment edge.','Queen':'Resolve the reinforcements, checking whether the alarm is raised.','Jack':'Skeletal knights arrive along the far edge.','10':'Cultists arrive along the far edge.','9':'A spectre appears.','8':'A spectral horseman appears.','7':'A troll appears along the encampment edge.','6':'Resolve the river effect.','5':'Flies arrive; check alarm state.'},
+ 'Destroy the Stone':{'Ace':'A troll arrives in a random corner.','King':'Resolve cultist arrivals and the stone’s sparks.','Queen':'Gnoll infantry arrive in a random corner.','Jack':'A spectral horseman appears near the stone.','10':'Resolve cultist arrivals and the stone’s scream.','9':'Spectres arrive at a random edge.','8':'Ogres arrive at a random edge.','7':'Werewolves arrive in a random corner.','6':'Resolve the stone’s directed attack.','5':'Flies arrive and the stone emits fire.'},
+ 'Fire Drop':{'Ace':'Two temple guardians emerge at the door.','2':'Two guardian archers emerge at the door.','3':'A giant rat emerges at the center, if floor remains.','4':'A giant rat emerges at the center, if floor remains.','5':'A skeleton appears at the left wall, if floor remains.','6':'A skeleton appears at the right wall, if floor remains.','7':'A giant fly appears in a random corner.','8':'A giant fly appears in a random corner.','9':'A skeletal ogre appears by the door, if floor remains.','10':'Resolve the smoke check on affected activations.','Jack':'Resolve the falling stone attack.','Queen':'Move creatures on the remaining floor toward the ledge.'},
+ 'Prison Break':{'Ace':'A giant fly appears in the room center.','2':'A giant fly appears at a random door.','3':'A skeleton appears at a random door.','4':'A skeleton appears in a random corner.','5':'Resolve the printed activation check.','6':'Resolve the printed movement check.','7':'A giant fly appears at the entry.','8':'A skeleton appears in a random corner.','9':'No event.'}
+};
+const go2EventProfile={
+ 'The Unintended Ambush':{'Ace':{Bear:1},'King':{Tiger:1},'Queen':{Boar:1}},
+ 'Counter Ambush':{'Ace':{Bear:1},'King':{Tiger:1},'Queen':{Boar:1}},
+ 'Rear Guard':{'Ace':{Spectre:1},'King':{Spectre:1},'Queen':{Spectre:1},'Jack':{'Gnoll Sergeant':1},'8':{'Gnoll Archer':2},'5':{Spectre:1}},
+ 'The Gnoll Encampment':{'Ace':{'Gnoll Fighter':3},'King':{'Gnoll Fighter':3},'Queen':{'Gnoll Archer':2},'Jack':{'Gnoll Sergeant':1,'Gnoll Fighter':2},'10':{'Gnoll Sergeant':1,'Gnoll Fighter':2},'9':{'Gnoll Fighter':3},'8':{Vulture:1},'6':{Spectre:2}},
+ 'The Distraction':{'Ace':{Ogre:1},'King':{'Gnoll Archer':2},'Jack':{'Skeletal Knight':2},'10':{Cultist:2}},
+ 'Destroy the Stone':{'Ace':{Troll:1},'Queen':{'Gnoll Sergeant':1,'Gnoll Fighter':3},'8':{Ogre:2},'7':{Werewolf:2}},
+ 'Fire Drop':{'Ace':{'Temple Guardian':2},'2':{'Temple Guardian Archer':2},'7':{'Giant Fly':1},'8':{'Giant Fly':1}},
+ 'Prison Break':{'Ace':{'Giant Fly':1},'2':{'Giant Fly':1},'3':{Skeleton:1},'4':{Skeleton:1},'7':{'Giant Fly':1},'8':{Skeleton:1}}
+};
+const go2OldCurrent=currentEvent;
+currentEvent=function(card=S.drawn[0]){
+ const x=S.session?.go2,m=go2Details();if(!m||!x||!card)return go2OldCurrent(card);
+ const hint=go2EventHints[S.scenario]?.[String(card).replace(/^Red /,'')]||'Resolve the printed event.';
+ return hint+' See p. '+(m.event+(S.scenario==='Claw and Fang'?x.band:0))+'.';
+};
+const go2OldEventSpawn=eventSpawn;
+eventSpawn=function(card){
+ const m=go2Details(),x=S.session?.go2;if(!m||!x)return go2OldEventSpawn(card);
+ const t=String(card||'').replace(/^Red /,'');
+ let foe=go2EventProfile[S.scenario]?.[t];
+ if(S.scenario==='Prison Break'&&foe?.Skeleton&&x.difficulty)foe={'Skeletal Knight':foe.Skeleton};
+ if(S.scenario==='Claw and Fang'&&['Jack','Queen'].includes(t))foe={[x.band||x.difficulty?'Grim Wolf':'Wolf']:1};
+ if(foe&&Object.keys(foe).every(k=>monsters[k]))return foe;
+ return null;
+};
+const go2OldGuideEligible=guideEligible;
+guideEligible=function(){
+ if(S.session?.go2&&S.phase===1&&S.turn===1&&['Claw and Fang','Rear Guard','Prison Break'].includes(S.scenario))return [];
+ return go2OldGuideEligible();
+};
+const go2OldGuideAdvance=guideAdvance;
+guideAdvance=function(){
+ const x=S.session?.go2,m=go2Details();
+ if(x&&m){
+  if(S.phase===1&&S.turn===1&&S.scenario==='Rear Guard'&&!x.roundDone.rear){toast('Stage the eight Spectres before leaving the Creature phase.');return;}
+  if(S.phase===3&&go2MustTick(m)&&!x.roundDone[S.turn]){toast('Resolve the scenario’s turn-end step first.');return;}
+ }
+ return go2OldGuideAdvance();
+};
+function go2MustTick(m){
+ return m.tick==='mirror'?S.turn<=8:!!m.tick;
+}
+function go2Special(){
+ const x=S.session?.go2,m=go2Details();
+ if(!x||!m||G().post)return;
+ if(S.scenario==='Rear Guard'&&S.turn===1&&S.phase===1&&!x.roundDone.rear){
+  if(!monsters.Spectre){toast('Spectre profile unavailable.');return;}
+  spawnField('Spectre',8);x.roundDone.rear=true;appendField('Eight Spectres staged. They do not act on turn 1.');commit();return;
+ }
+ if(S.phase!==3||x.roundDone[S.turn]||!go2MustTick(m))return;
+ let t,q=1,line='';
+ if(m.tick==='guardian'){t='Temple Guardian';line='Place one Guardian in a random corner.';}
+ if(m.tick==='ghoul'||m.tick==='lock'){
+  const raw=guideDie(prompt('Enter a physical d20 result or leave blank for a digital roll.',''));
+  if(raw===null)return;
+  let v=raw+(m.tick==='lock'&&x.difficulty?2:0);
+  if(m.tick==='ghoul'){
+   const box=[3,6,9,11,14,16,18,20].findIndex(n=>v<=n);
+   t=box<4?'Ghoul':box<6?'Ghoul Rotter':'Ghoul Fiend';line='Roll '+v+': trapdoor '+(box%4+1)+'.';
+  }else{
+   if(v<=6)t='Skeleton';else if(v<=9){t='Skeleton';q=2;}else if(v<=11)t='Temple Guardian';else if(v<=14)t='Skeletal Knight';else if(v<=16){t='Skeletal Knight';q=2;}else if(v<=18){t='Skeleton';q=3;}else t='Shadow Knight';
+   line='Encounter roll '+v+': place in a random corner.';
+  }
+ }
+ if(m.tick==='mirror'){
+  const p=[193,236,342,437,500,611,718,811][S.turn-1];
+  if(!confirm('Mark Note '+p+' as resolved for this turn?'))return;
+  line='Resolved Note '+p+'.';
+ }
+ if(t){if(monsters[t])spawnField(t,q);else line+=' Enter '+q+' '+t+' manually.';}
+ x.roundDone[S.turn]=line;
+ appendField(line+(t?' '+q+' '+t:''));
+ commit();
+}
+function go2Side(){
+ const x=S.session?.go2,m=go2Details();if(!x||!m||G().post||!['wagon','door'].includes(m.side)||!x.sideDeck.length)return;
+ const card=x.sideDeck.pop();x.sideDrawn.unshift(card);appendField((m.side==='wagon'?'Wagon':'Door')+' revealed: '+card);commit();
+}
+function go2Counter(delta){
+ const x=S.session?.go2,m=go2Details();if(!x||!m?.counter||G().post)return;
+ x.count=Math.max(0,Math.min(m.max,x.count+delta));
+ appendField(m.counter+': '+x.count);commit();
+}
+function go2ExtraXP(k,delta){
+ const x=S.session?.go2, m=go2Details();if(!x||!m||!['exit','survive'].includes(k)||G().post&&x.result==='locked')return;
+ const v=go2PerFigure[S.scenario]?.[k];if(!v)return;
+ const allowed=S.session.participants.length+(x.npc||[]).length;
+ const old=n(x.manualAwards[k]), next=Math.min(allowed,Math.max(0,old+delta));
+ x.manualAwards[k]=next;
+ S.scenarioXP=Math.max(0,S.scenarioXP+(next-old)*v);
+ appendField('Scenario award · '+k+': '+next+' × '+v+' XP.');
+ commit();
+}
+const go2PerFigure={
+ 'The Laughing Columns':{exit:3},'Pit of Ghouls':{exit:3},'The Incantation Lock':{exit:3},
+ 'The Unintended Ambush':{survive:5},'Rear Guard':{survive:5},'The Distraction':{exit:4},
+ 'Destroy the Stone':{exit:5},'Fire Drop':{exit:8},'Prison Break':{exit:8}
+};
+function go2SpecialHTML(){
+ const x=S.session?.go2,m=go2Details();if(!x||!m)return '';
+ const p=m.event+(S.scenario==='Claw and Fang'?x.band:0);
+ const c=m.counter?'<div class="row between"><b>'+esc(m.counter)+': '+x.count+'</b><div class="row"><button onclick="go2Counter(-1)" aria-label="Decrease scenario counter">−</button><button onclick="go2Counter(1)" aria-label="Increase scenario counter">+</button></div></div>':'';
+ const sidePage=m.side==='door'?152:117;
+ const side=['door','wagon'].includes(m.side)?'<div class="row between"><div><b>'+(m.side==='door'?'Doorway':'Wagon')+' deck</b><div>'+x.sideDeck.length+' remaining'+(x.sideDrawn[0]?' · Latest: '+esc(x.sideDrawn[0]):'')+'</div></div><div class="row"><button onclick="go2Side()" '+(!x.sideDeck.length?'disabled':'')+'>Reveal '+m.side+'</button>'+(x.sideDrawn[0]?'<button onclick="openGohReference('+sidePage+')">Read the result</button>':'')+'</div></div>':'';
+ const fire=S.scenario==='Fire Drop'&&S.drawn[0]?'<small>This card removes '+([2,2,4,4,5,6,2,2,4,4,5,6][go2Range(12).indexOf(S.drawn[0].replace('Red ',''))]||0)+'″ of floor. Use the counter to track actual loss.</small>':'';
+ const notes=m.tick==='mirror'&&S.phase===3&&S.turn<=8?'<p>Resolve Note '+[193,236,342,437,500,611,718,811][S.turn-1]+' now.</p>':'';
+ const tick=S.phase===3&&go2MustTick(m)?notes+'<button onclick="go2Special()" '+(x.roundDone[S.turn]?'disabled':'')+'>'+(x.roundDone[S.turn]?esc(x.roundDone[S.turn]):m.tick==='mirror'?'Mark note resolved':m.tick==='guardian'?'Add end-of-turn Guardian':'Roll turn-end encounter')+'</button>':'';
+ const rear=S.scenario==='Rear Guard'&&S.turn===1&&S.phase===1&&!x.roundDone.rear?'<button onclick="go2Special()">Stage 8 Spectres (no actions this turn)</button>':'';
+ const award=Object.entries(go2PerFigure[S.scenario]||{}).map(([k,v])=>'<div class="row between"><span>'+(k==='exit'?'Heroes who exited':'Heroes still on the table')+': '+n(x.manualAwards[k])+' × '+v+' XP</span><div class="row"><button onclick="go2ExtraXP(\''+k+'\',-1)" aria-label="Decrease qualifying figures">−</button><button onclick="go2ExtraXP(\''+k+'\',1)" aria-label="Increase qualifying figures">+</button></div></div>').join('');
+ return '<section class="panel stack section"><div class="eyebrow">Scenario-specific controls</div><h3>'+esc(S.scenario)+'</h3><p>'+esc(m.notes)+'</p>'+(x.npc.length?'<small>Tabletop story figures: '+esc(x.npc.join(', '))+'</small>':'')+(x.opening?'<small>Opening card (creatures only): '+esc(x.opening)+'</small>':'') +c+side+fire+tick+rear+'<div class="row"><button onclick="openGohReference('+m.p+')">Setup and map</button>'+(S.drawn[0]||x.opening||S.phase===3?'<button onclick="openGohReference('+p+')">Revealed event / turn reference</button>':'')+'<button onclick="openGohReference('+((S.mission==='Temple of Madness')?96:m.end)+')">'+(S.mission==='Temple of Madness'?'Numbered notes':'Special rules / rewards')+'</button></div></section>';
+}
+const go2OldPlay=play;
+play=function(){const h=go2OldPlay();return S.session?.go2?go2SpecialHTML()+h:h;};
+const go2OldPost=guidePostStart;
+guidePostStart=function(){
+ go2OldPost();
+ const m=go2Details(),g=S.session?.guided;
+ if(m&&g?.post&&!g.go2RecoveryChecked){
+  if(m.hp)g.recovery=m.hp;
+  g.go2RecoveryChecked=true;commit();
+ }
+};
+const go2OldEnemyKill=enemyKill;
+const go2KillOverride={
+ 'Claw and Fang':{Werewolf:10,Wolf:2,'Grim Wolf':2,'Giant Fly':2,'Giant Rat':2,'Swamp Zombie':2},
+ 'The Laughing Columns':{'Temple Guardian':3},'Pit of Ghouls':{Ghoul:3,'Ghoul Rotter':2,'Ghoul Fiend':4},
+ 'The Incantation Lock':{Skeleton:1,'Skeletal Knight':2,'Temple Guardian':3,'Shadow Knight':10},
+ 'The Mirror Enduring':{Skeleton:1,'Blood Bat':1,'Temple Guardian':3,'Temple Guardian Archer':3,Greviks:10,Trekatis:20},
+ 'Rear Guard':{Spectre:3,'Gnoll Archer':3,'Gnoll Fighter':3,'Gnoll Sergeant':3},
+ 'The Gnoll Encampment':{Cultist:3,Vulture:3,'Gnoll Shaman':12,'Cultist Leader':12},
+ 'The Distraction':{Skeleton:2,'Skeletal Knight':2,'Giant Fly':2,Cultist:3,Spectre:3,'Cultist Leader':5,Ogre:5,Troll:8,'Spectral Horseman':10},
+ 'Fire Drop':{Skeleton:2,'Giant Rat':2,'Giant Fly':2,'Temple Guardian':3,'Temple Guardian Archer':3,'Skeletal Ogre':4},
+ 'Prison Break':{Skeleton:2,'Skeletal Knight':2,'Giant Fly':2,'Temple Guardian':3,'Gnoll Archer':3,'Gnoll Sergeant':3,'Skeletal Ogre':4,Warden:5}
+};
+const go2KillCaps={'The Laughing Columns':30,'Pit of Ghouls':50,'The Incantation Lock':50,'The Distraction':50};
+enemyKill=function(id){
+ const m=go2Details(),x=S.session?.go2,e=S.enemies.find(v=>v.id===id);
+ if(!m||!x||!e||e.awarded)return go2OldEnemyKill(id);
+ const nominal=m.noKill?0:(go2KillOverride[S.scenario]?.[e.type]??n(e.xp));
+ e.xp=Math.min(nominal,Math.max(0,(go2KillCaps[S.scenario]??Infinity)-n(x.killCredit)));
+ x.killCredit+=e.xp;
+ return go2OldEnemyKill(id);
+};
+
+
+function go2CandidateList(){
+ const last=S.history?.[0];if(!last)return [['The Missing','The Deserted Village']];
+ if(last.mission==='Burning Light')return last.scenario==='The Final Showdown'?[['Menagerie','The Unintended Ambush']]:[];
+ if(['failure','withdrawal'].includes(last.go2?.result))return [[last.mission,last.scenario],['Incinerator','Fire Drop']].filter((x,i,a)=>i===a.findIndex(y=>y[1]===x[1]));
+ if(last.scenario==='Rear Guard')return [['Ghost Stone','The Gnoll Encampment']];
+ if(last.scenario==='The Gnoll Encampment')return [['Ghost Stone','The Distraction']];
+ if(last.scenario==='The Distraction')return [['Ghost Stone','Destroy the Stone']];
+ if(last.mission==='Temple of Madness'&&go2TempleNext[last.scenario]){
+  const played=new Set(S.history.filter(h=>h.go2?.result!=='failure'&&h.mission===last.mission).map(h=>h.scenario));
+  let choices=go2TempleNext[last.scenario];
+  if(last.scenario!=='The Laughing Columns')choices=choices.filter(t=>t==='The Mirror Enduring'?played.has('Pit of Ghouls')&&played.has('The Incantation Lock'):!played.has(t));
+  if(last.go2?.next&&choices.includes(last.go2.next))choices=[last.go2.next];
+  return choices.map(t=>[last.mission,t]);
+ }
+ const list=missions[last.mission],i=list?.indexOf(last.scenario);
+ if(list&&i>=0&&i<list.length-1)return [[last.mission,list[i+1]]];
+ if(last.mission==='Incinerator')return [];
+ const next=go2BookOrder[go2BookOrder.indexOf(last.mission)+1];
+ return next?[[next,missions[next][0]]]:[];
+}
+function go2HeroStatus(c){
+ if(c.dead)return 'Deceased';if(c.retired)return 'Retired';if(c.active===false)return 'In reserve';
+ return c.hp<=0?'Downed':'Deployed';
+}
+function go2Camp(){
+ if(S.session||!S.history?.length)return '';
+ const last=S.history[0], party=partyStatus(),next=go2CandidateList();
+ const rs=(S.rangers||[]).filter(c=>!c.dead&&!c.retired&&n(c.xp)>=cost(n(c.level)+1)&&n(c.level)<100);
+ const cs=(S.companions||[]).filter(c=>!c.dead&&!c.retired&&!c.go2Temp&&compMilestone(c));
+ const figures=(last.finalHeroes||last.participants||[]).map(record=>{
+  const c=get(record.id)||record;
+  return '<div class="listline"><span>'+esc(c.name||'Unknown figure')+' · '+esc(go2HeroStatus(c))+'</span><small>'+esc(c.stats?c.hp+' / '+c.stats[5]+' HP':'')+(c.kind==='ranger'?' · Lv '+n(c.level)+' · '+n(c.xp)+' XP':c.kind==='companion'?' · '+n(c.pp)+' PP':'')+'</small></div>';
+ }).join('');
+ return '<section class="panel stack section"><div class="eyebrow">Campaign handoff</div><h2>After '+esc(last.scenario)+'</h2><p>'+n(last.xp)+' shared XP recorded. Review the expedition and the roster before continuing.</p><div class="row"><button onclick="archiveReport('+esc(JSON.stringify(last.id))+')">View scenario record</button></div>'+figures+'<h3>Advancement queued</h3>'+(!rs.length&&!cs.length?'<p class="muted">No level or companion milestone earned yet.</p>':'')+rs.map(c=>'<div class="row between"><span>'+esc(c.name)+' · next level costs '+cost(n(c.level)+1)+' XP</span><button onclick="levelup('+esc(JSON.stringify(c.id))+')">Level up</button></div>').join('')+cs.map(c=>'<div class="row between"><span>'+esc(c.name)+' · '+n(c.pp)+' PP</span><button onclick="edit('+esc(JSON.stringify(c.id))+')">Review milestone</button></div>').join('')+'<h3>Prepare the next deployment</h3>'+partySummary(party)+(party.legal?'':'<p class="warning">'+esc(party.reason)+'</p>')+'<button onclick="show(\'party\')">Review current party</button><h3>Continue the campaign</h3>'+next.map(([m,t])=>'<button onclick="go2Open('+esc(JSON.stringify(m))+','+esc(JSON.stringify(t))+')">'+esc(m)+' / '+esc(t)+'</button>').join('')+(!next.length?'<small>Choose your allowed route or a different mission from the mission library.</small>':'')+'</section>';
+}
+function go2FigureAward(k,id,checked){
+ const x=S.session?.go2,c=get(id);
+ if(!x||!G().post||!c||!S.session.participants.includes(id)||c.dead||c.retired||c.hp<=0)return;
+ const v=go2PerFigure[S.scenario]?.[k];if(!v||S.session.downed.includes(id))return;
+ const ids=(x.figureAwards||={})[k]||=[],has=ids.includes(id);
+ if(has===checked)return;
+ x.figureAwards[k]=checked?[...ids,id]:ids.filter(a=>a!==id);
+ S.scenarioXP=Math.max(0,S.scenarioXP+(checked?v:-v));
+ appendField(c.name+': '+(checked?'recorded':'removed')+' '+v+' XP for '+(k==='exit'?'exiting':'remaining on the table')+'.');
+ commit();
+}
+function go2SetOutcome(value){
+ const x=S.session?.go2;if(!x||!G().post||!['success','failure','withdrawal',''].includes(value))return;
+ x.result=value;if(value!=='success')x.next=null;commit();
+}
+function go2SetBranch(value){
+ const x=S.session?.go2;if(!x||!G().post||x.result!=='success'||!go2TempleNext[S.scenario]?.includes(value))return;
+ x.next=value;commit();
+}
+const go2PreviousPostPanel=postPanel;
+postPanel=function(){
+ let h=go2PreviousPostPanel(),x=S.session?.go2,m=go2Details();
+ if(!x||!m)return h;
+ const pending=new Set(S.session.downed);
+ const v=Object.entries(go2PerFigure[S.scenario]||{}).map(([k,n])=>{
+  const include=S.session.participants.map(get).filter(c=>c&&!c.dead&&!c.retired&&!c.go2Temp&&c.hp>0&&!pending.has(c.id));
+  return '<div class="note stack"><b>'+(k==='exit'?'Actually exited the table':'Still standing on the table')+' · '+n+' XP per qualifying figure</b>'+include.map(c=>'<label class="check"><input type="checkbox" '+(x.figureAwards?.[k]?.includes(c.id)?'checked':'')+' onchange="go2FigureAward(\''+k+'\','+esc(JSON.stringify(c.id))+',this.checked)"> '+esc(c.name)+'</label>').join('')+(include.length?'':'<small>No eligible participating figures.</small>')+'</div>';
+ }).join('');
+ const branch=S.scenario==='The Laughing Columns'&&x.result==='success'?'<label for="go2Branch">Exit route revealed in play</label><select id="go2Branch" onchange="go2SetBranch(this.value)">'+opts(['',...go2TempleNext[S.scenario]],x.next||'')+'</select>':'';
+ const outcome='<div class="note stack"><label for="go2Result"><b>Scenario outcome</b></label><select id="go2Result" onchange="go2SetOutcome(this.value)"><option value="">Select the outcome you achieved</option>'+['success','failure','withdrawal'].map(k=>'<option value="'+k+'" '+(x.result===k?'selected':'')+'>'+({success:'Scenario objective achieved',failure:'Scenario failed',withdrawal:'Company withdrew'}[k])+'</option>').join('')+'</select>'+branch+v+'<small>When all decisions are recorded, the archive carries your characters, injuries, results and advances forward.</small></div>';
+ h=h.replace('<h3>2 · Experience & treasure</h3>','<h3>2 · Experience & treasure</h3>'+outcome);
+ if(m.hp)h=h.replace('select onchange="G().recovery=this.value;commit()"','select disabled onchange="G().recovery=this.value;commit()"');
+ return h;
+};
+const go2PrevSurvival=guideSurvival;
+guideSurvival=function(id){
+ const before=S.session?.guided?.survivalApplied?.[id];go2PrevSurvival(id);
+ const c=get(id),after=S.session?.guided?.survivalApplied?.[id];
+ if(!before&&after&&c&&!c.dead&&S.scenario==='Fire Drop'&&S.session?.go2){c.hp=1;delete c.nextWound;commit();}
+};
+const go2PrevArchive=guideArchive;
+guideArchive=function(){
+ const x=S.session?.go2;
+ if(!S.session)return;
+ if(x&&!x.result){toast('Choose the scenario outcome before archiving.');return;}
+ if(x&&S.scenario==='The Laughing Columns'&&x.result==='success'&&!x.next){toast('Record which passage the columns revealed.');return;}
+ const id=S.session.id,prior=S.session.participants.slice();
+ const recordData=x?clone(x):null;
+ go2PrevArchive();
+ if(S.session||S.history?.[0]?.sessionId!==id)return;
+ if(recordData)S.history[0].go2=recordData;
+ if(prior.some(i=>get(i)?.go2Temp))S.companions=S.companions.filter(c=>!prior.includes(c.id)||!c.go2Temp);
+ commit();show('campaign');
+};
+const go2CampCommand=dashboard;
+dashboard=function(){
+ const prev=go2CampCommand();return !S.session&&S.history?.length?prev+'<section class="panel stack section"><h3>Continue after the last scenario</h3><p>Review injuries, pending level-ups and the next scenario.</p><button onclick="show(\'campaign\')">Open campaign handoff</button></section>':prev;
+};
+const go2PriorLevel=levelup;
+levelup=function(id){const c=get(id);if(!c||c.dead||c.retired){toast('Deceased or retired figures cannot advance.');return;}return go2PriorLevel(id);};
+const go2PriorEdit=edit;
+edit=function(id){
+ go2PriorEdit(id);const c=get(id);if(!c||!c.dead&&!c.retired)return;
+ const f=$('charForm')||$('compForm');if(!f)return;
+ const activeControl=$('eActive')||$('cpActive');
+ if(activeControl){activeControl.checked=false;activeControl.disabled=true;}
+ f.insertAdjacentHTML('afterbegin','<p class="warning">This figure is '+(c.dead?'deceased':'retired')+'. You can review its record, but cannot redeploy it.</p>');
+};
+const go2PriorCompReward=claimCompReward;
+claimCompReward=function(p){if(companionDraft?.dead||companionDraft?.retired||S.session){toast('Companion advancement is only available between scenarios for living companions.');return;}return go2PriorCompReward(p);};
+const go2PriorRemove=removeChar;
+removeChar=function(id){
+ const c=get(id);
+ if(c?.dead||c?.retired){toast('Keep this figure in the archive to preserve campaign history.');return;}
+ if(S.session?.participants.includes(id)){toast('Finish or abandon the scenario before removing a participant.');return;}
+ return go2PriorRemove(id);
+};
+
+const go2OldSaveCampaign=saveCampaign;
+saveCampaign=function(){
+ const m=go2[$('scenario')?.value];
+ if(m&&!$('customScenario')?.value&&$('roundLimit'))$('roundLimit').value=m.turns||0;
+ return go2OldSaveCampaign();
+};
+const go2PriorRules=rules;
+rules=function(){
+ return go2PriorRules()+'<section class="panel stack section"><div class="eyebrow">Private expansion reference</div><h3>Rules and maps on this device</h3><p>Add your existing PDF once to open the printed page for a setup, revealed result or profile from inside the tracker.</p><div class="row"><button onclick="openGohReference(4)">Open Gathering of Heroes reference</button><button onclick="show(\'campaign\')">Open mission library</button></div></section>';
+};
+
+
+// Gathering of Heroes reference additions. Printed page numbers; no supplied source text.
+const goh2Creatures = {
+  'Cultist': ['Other',173,[6,2,0,11,2,10,3],'A lightly armoured melee follower.'],
+  'Cultist Leader': ['Other',173,[5,4,0,12,6,14,5],'Shield-bearing leader; +1 damage.'],
+  'Gnoll Beast-handler': ['Gnolls',178,[6,2,0,11,0,10,3],'Light armour and a two-handed weapon. Use the scenario’s handler instructions.'],
+  'Greviks': ['Monsters',179,[null,4,0,14,3,18,10],'Trekatis’s bodyguard. Movement and interception follow the encounter instructions.'],
+  'Grim Wolf': ['Beasts',180,[8,3,0,10,0,10,2],'A tougher, more dangerous wolf.'],
+  'Skeletal Ogre': ['Undead',181,[5,3,0,11,0,4,4],'Powerful; +2 damage.'],
+  'Spectral Horseman': ['Undead',182,[6,4,0,12,10,14,10],'Flying rider. Normal weapons deal half damage; consult the target priority and weapon rules.'],
+  'Spectre': ['Undead',182,[6,1,0,10,10,10,3],'Flying, half damage from ordinary weapons, and a dangerous death scream.'],
+  'Temple Guardian': ['Other',183,[null,2,0,11,2,10,3],'Temple defender carrying a two-handed weapon. Movement follows the scenario.'],
+  'Temple Guardian Archer': ['Other',183,[null,1,1,11,2,10,3],'Temple bowman. Movement and targeting follow the scenario.'],
+  'Trekatis': ['Other',184,[null,2,0,12,8,16,20],'Spellcaster with a staff that can push back and disrupt a wounded target. Consult encounter movement and spell instructions.'],
+  'Warden': ['Other',185,[6,4,0,11,4,12,5],'A light-armoured opponent carrying paired hand weapons.'],
+  'Werewolf': ['Monsters',186,[6,4,0,12,5,18,10],'Regenerates, climbs easily, and hits for +2 damage. Silver and infection rules are in the supplement.'],
+  'Wounded Alladorean Soldier': ['Other',186,[5,1,0,12,0,1,0],'Neutral or allied scenario figure. Only one action per activation.']
+};
+
+const goh2ExistingPage={'Blood Bat':172,'Burrow Worm':172,'Civilian':172,'Darkroot Body':173,'Darkroot Vine':173,'Flesh Golem':174,'Ghoul':174,'Ghoul Fiend':174,'Ghoul Flinger':174,'Ghoul Rotter':175,'Ghoul Snake':175,'Giant Fly':176,'Giant Rat':176,'Giant Spider':176,'Giant Snake':177,'Gnoll Fighter':178,'Gnoll Archer':178,'Gnoll Sergeant':178,'Gnoll Shaman':178,'Ogre':180,'Shadow Knight':180,'Skeletal Knight':181,'Skeleton':181,'Swamp Zombie':182,'Terror Wing':184,'Tortured Soul':185,'Troll':185,'Vulture':185,'Wolf':186,'Zombie':187};
+for(const [name,[group,page,stat,desc]] of Object.entries(goh2Creatures)){
+ if(!Object.hasOwn(monsters,name))monsters[name]=[...stat,desc];
+ if(!groups[group].includes(name))groups[group].push(name);
+}
+const goh2OldCreatureDescription=creatureDescription;
+creatureDescription=function(name,compact=false){
+ const data=goh2Creatures[name],p=data?.[1]??goh2ExistingPage[name];
+ if(data){
+  return '<div class="creature-guide"><div class="creature-role">'+esc(data[0])+'</div><p>'+esc(data[3])+'</p>'+(compact?'':'<button type="button" class="creature-source" onclick="openGohReference('+p+')">Gathering of Heroes p. '+p+'</button>')+'</div>';
+ }
+ return goh2OldCreatureDescription(name,compact)+(!compact&&p?'<button type="button" class="creature-source" onclick="openGohReference('+p+')">Gathering of Heroes p. '+p+'</button>':'');
+};
+const goh2Recruits={
+'Red Hawk Squire':[20,10,[6,2,0,11,1,12],'Hand Weapon, Light Armour',{},[],[],'Weapon bearer. Limit of one squire per eligible Red Hawk Knight or Rare Companion choice.','Red Hawk Knight'],
+'Red Hawk Knight':[20,40,[6,4,0,13,3,12],'Hand Weapon, Dagger, Shield, Heavy Armour',{Strength:4,Leadership:4,'Read Runes':2},[],[],'Armoured shield fighter. Cannot use missile weapons and must honour the child-protection restriction.'],
+'Large Spider':[24,2,[6,1,0,14,2,2],'',{Perception:3,Stealth:3},[],[],'Carryable, poisonous climber. Reduced support, damage capped at 5.','Chthonian Mage',true],
+'Chthonian Mage':[25,35,[6,1,0,10,3,12],'Staff',{},[],[],'Choose three spells. Dark Vision and innate magic; check the chapter’s spell and equipment limits.'],
+'River Shark':[29,25,[6,3,2,10,3,12],'Hand Weapon, Dagger, Throwing Knife, Throwing Knife',{Swim:6,Climb:5,Acrobatics:5},[],[],'Boat and swimming specialist. Uses knives in melee situations; does not receive Treasure Keeper.'],
+'Servant of Seth':[34,35,[6,3,1,11,3,12],'Staff, Light Armour, Holy Icon, Taref',{},['Halt Undead'],['Heal'],'Holy caster with innate spell substitutions and an advantage against undead.'],
+'Initiate':[34,18,[6,0,0,10,2,10],'Hand Weapon, Taref',{},[],['Heal'],'Priestly apprentice who can heal.','Servant of Seth'],
+'Fletcher':[37,18,[6,1,2,11,1,10],'Bow, Quiver, Dagger, Light Armour',{},[],[],'Archer’s assistant who can hand over a spare bow and quiver subject to the chapter’s conditions.','Varakian Archer'],
+'Varakian Archer':[38,40,[6,2,3,11,2,12],'Bow, Quiver, Hand Weapon, Light Armour',{},['Fire Shot','Smoke Shot'],[],'Bow specialist; enchant arrows, craft bows, and use the enhanced quiver rules.'],
+'Scrivener':[41,10,[6,1,0,10,2,12],'Hand Weapon',{'Ancient Lore':3,'Read Runes':3,Perception:3},[],[],'Scholar and scroll carrier. Cannot cast the scrolls they carry.','Vampire Hunter'],
+'Vampire Hunter':[42,35,[6,3,2,11,4,12],'Hand Weapon, Hand Crossbow, Light Armour',{'Ancient Lore':4,Stealth:4,'Pick Lock':3,Traps:3},[],[],'An investigative fighter. Has Blood Price and Steel Mind but not Chosen Foe.'],
+'Scrollmaster of Melnoth':[46,35,[6,1,0,10,3,12],'Staff, Spellbook',{},[],[],'Choose three spells, including the two unique options. Magic Resistance and Scrollmaster remain available.'],
+'Encarnoth Delver':[50,20,[6,2,0,11,2,12],'Hand Weapon, Light Armour, Rope',{'Ancient Lore':4,Climb:3,Navigation:3,Perception:3,'Pick Lock':2,'Read Runes':3,Stealth:2,Survival:3,Traps:3},[],[],'A strong exploration specialist. Has Determine Weakness and Endure Hardship.'],
+'Sandfly':[54,6,[6,1,0,8,5,5],'',{},[],[],'Flying animal familiar.','Wasteland Firesword',true],
+'Wasteland Firesword':[55,40,[7,4,1,11,3,12],'Hand Weapon, Dagger, Light Armour, Fire Wax, Fire Flask',{Survival:4,Climb:4},[],[],'Brings one fire wax and one fire flask per mission. Cannot swim.'],
+'Orla':[71,20,[6,1,2,11,3,10],'Bow, Quiver, Dagger, Light Armour',{Track:4,Stealth:3},[],[],'An auxiliary scout in Blood Moon. Can be recruited normally for future missions.'],
+'Seb':[71,20,[6,3,0,10,2,14],'Two-handed Weapon',{Strength:4},[],[],'An auxiliary axe fighter in Blood Moon. Can be recruited normally for future missions.'],
+'Covin':[71,15,[6,2,0,11,1,12],'Hand Weapon, Light Armour',{Leadership:3,Perception:3},[],[],'An auxiliary soldier in Blood Moon. Can be recruited normally for future missions.'],
+'Nicolan':[71,20,[6,3,0,11,1,12],'Hand Weapon, Dagger, Light Armour',{'Ancient Lore':3,Armoury:3,'Read Runes':2},[],[],'An auxiliary scholar in Blood Moon. Can be recruited normally for future missions.']
+};
+for(const [name,[p,rp,stat,gear,sk,ability,magic,summary,owner,animal]] of Object.entries(goh2Recruits)){
+ if(!Object.hasOwn(templates,name))templates[name]=[rp,stat,gear,sk];
+ if(animal&&!animals.includes(name))animals.push(name);
+ companionDescriptions[name]=['Gathering of Heroes',summary,(owner?'Requires '+owner+' or the appropriate Rare Companion choice. ':'')+'Supplement p. '+p+'.'];
+}
+const goh2MakeCompanion=makeCompanion;
+makeCompanion=function(type,owner){
+ const c=goh2MakeCompanion(type,owner),r=goh2Recruits[type];
+ if(r){c.abilities=[...r[5]];c.spells=[...r[6]]}
+ return c;
+};
+const goh2CompDesc=companionDescription;
+companionDescription=function(t,compact=false){
+ const h=goh2CompDesc(t,compact),p=goh2Recruits[t]?.[0];
+ return h+(!compact&&p?'<button type="button" class="creature-source" onclick="openGohReference('+p+')">Gathering of Heroes p. '+p+'</button>':'');
+};
+const goh2CompSkills=compSkills;
+compSkills=function(t){return goh2Recruits[t]?.[9]?['Acrobatics','Climb','Navigation','Perception','Stealth','Strength','Survival','Swim','Track']:goh2CompSkills(t)};
+const goh2PartyStatus=partyStatus;
+partyStatus=function(draft=null){
+ const p=goh2PartyStatus(draft);
+ if(!p.legal)return p;
+ const cs=partyCompanions().filter(c=>!draft||c.id!==draft.id);
+ if(draft?.active!==false&&draft)cs.push(draft);
+ for(const [type,r] of Object.entries(goh2Recruits)){
+  if(!r[8])continue;
+  const count=cs.filter(c=>c.type===type&&!c.scenarioFree).length;
+  const permitted=partyRangers().filter(c=>c.gathering?.archetype===r[8]||c.gathering?.traits?.some(t=>t.name==='Rare Companion'&&[type,type==='Red Hawk Squire'?'Squire':type].some(x=>x.toLowerCase()===String(t.detail).trim().toLowerCase()))).length;
+  if(count>permitted)return {...p,legal:false,reason:type+' requires one eligible ranger per recruit ('+r[8]+' or Rare Companion).'};
+ }
+ return p;
+};
+
+
+const goh2Options={
+ Spells:[
+  ['Dark Vision',23,'Help an ally see despite darkness; follow the spell’s duration and target rules.'],
+  ['Purify Blood',24,'Clear poison or disease and improve the target’s Will for the remainder of the game.'],
+  ['Sprout Mushrooms',24,'Before a scenario, feed up to four figures affected by hunger and thirst.'],
+  ['Invisibility',45,'Hide a figure temporarily. The target cannot enter combat or pick up treasure while invisible.'],
+  ['Paper Crane',45,'Create a temporary flying companion. It is destroyed near an open flame; limit one per caster.']
+ ],
+ Abilities:[
+  ['Flashing Blade',19,'Make an immediate melee attack on activation without spending an action. See the archetype’s conditions.'],
+  ['Quick Strike',19,'Use when forcing combat; check the full trigger and resolution.'],
+  ['Tumble',28,'A River Shark movement manoeuvre. Follow the printed positional conditions.'],
+  ['Double Shot',37,'Shoot two nearby targets from one action, subject to the listed ranges and restrictions.'],
+  ['Fire Shot',37,'A successful hit deals extra magical damage.'],
+  ['Smoke Shot',37,'Shoot to create a temporary smoke screen.'],
+  ['Whirling Death',54,'Attack each engaged enemy in one action; omit support bonuses.'],
+  ['Sneak Attack',59,'Use when the hero started the turn disguised; improves its attacks for that turn.']
+ ],
+ Equipment:[
+  ['Hand Crossbow',41,'One-handed crossbow; use its printed range, damage and ammunition rules.'],
+  ['Taref',32,'Thrown club of the Servants of Seth, especially useful against undead.'],
+  ['Holy Icon',31,'Standard issue to a Servant of Seth; does not take a normal item slot.'],
+  ['Fire Wax',52,'A Firesword preparation that temporarily ignites a weapon.'],
+  ['Fire Flask',52,'A Firesword thrown incendiary. Resolve the printed area and damage at the table.']
+ ]
+};
+for(const [group,rows] of Object.entries(goh2Options)){
+ for(const [name,p,effect] of rows){
+  if(!library[group].some(x=>x.name===name))library[group].push({name,effect,kind:{Spells:'spell',Abilities:'ability',Equipment:'gear'}[group],icon:{Spells:'spark',Abilities:'crest',Equipment:'shield'}[group],page:p,gohPage:p});
+  const arr=group==='Spells'?spells:group==='Abilities'?abilities:null;
+  if(arr&&!arr.includes(name))arr.push(name);
+ }
+}
+const goh2Kit={
+ 'Red Hawk Knight':['Train in heavy armour and shield defence. Observe missile/spell restrictions and the protective calling.',17],
+ 'Chthonian Mage':['Track Dark Vision, plant defence and innate spells. Review its restricted caster equipment and chosen spells.',21],
+ 'River Shark':['Track swimming, boat rolls and thrown-knife/two-weapon options. The book also defines gear and spell restrictions.',26],
+ 'Servant of Seth':['Track Holy Icon, Taref, anti-undead abilities and innate healing. Review the chapter’s spell limits.',30],
+ 'Varakian Archer':['Track bow crafting, magical arrows and quiver options. No spells or heavy armour/shields.',35],
+ 'Vampire Hunter':['Track Blood Price, Chosen Foe, Steel Mind and the Hand Crossbow. Spell and gear choices are restricted.',39],
+ 'Scrollmaster of Melnoth':['Track restricted weapons/armour, Magic Resistance, scroll handling and access to open spell slots.',43],
+ 'Encarnoth Delver':['Track scouting and survival traits, extra carry space and a chosen mastered skill.',47],
+ 'Wasteland Firesword':['Track paired weapons, Fire Wax and Fire Flasks, along with swimming, spellcasting and gear restrictions.',51],
+ 'Shadow Deep Survivor or Deserter':['Choose a favoured enemy and a phobia, and track disguise, veteran bonuses and Sneak Attack.',56]
+};
+const goh2Form=gohForm;
+gohForm=function(c){return goh2Form(c).replace('<small id="gohArchHint"></small>','<small id="gohArchHint"></small><div id="goh2Kit" class="note" hidden></div>')};
+const goh2Update=gohUpdate;
+gohUpdate=function(){
+ goh2Update();
+ const form=$('gohArch'),box=$('goh2Kit');
+ if(!form||!box)return;
+ const kit=goh2Kit[form.value];box.hidden=!kit;
+ box.innerHTML=kit?'<p>'+esc(kit[0])+'</p><button type="button" onclick="openGohReference('+kit[1]+')">Read archetype in your supplement</button>':'';
+};
+const goh2PreparedTypes=new Set(['Chthonian Mage','Scrollmaster of Melnoth']);
+const goh2DrawCompanion=drawCompanionSheet;
+drawCompanionSheet=function(){
+ goh2DrawCompanion();
+ const c=companionDraft;
+ if(!goh2PreparedTypes.has(c.type))return;
+ const f=$('compForm'),b=$('cpBudget');
+ const standard=library.Spells.filter(v=>!v.gohPage).map(v=>v.name);
+ const options=[...standard,...(c.type==='Chthonian Mage'?['Dark Vision','Purify Blood','Sprout Mushrooms']:['Invisibility','Paper Crane'])].sort((a,b)=>a.localeCompare(b));
+ const previous=c.goh2Prepared||(c.spells||[]).slice(0,3);
+ let fields='';
+ for(let i=0;i<3;i++)fields+='<label>Prepared spell '+(i+1)+'<select id="goh2Prep'+i+'"'+(S.session?' disabled':' required')+'>'+opts(['',...options],previous[i]||'')+'</select></label>';
+ b.insertAdjacentHTML('beforebegin','<div class="note stack"><b>Supplement spell preparation</b><small>Choose three before the scenario. Printed limited/repeated-spell rules still apply.</small><div class="fields">'+fields+'</div></div>');
+};
+const goh2Capture=captureCompanionDraft;
+captureCompanionDraft=function(){
+ goh2Capture();
+ const c=companionDraft;
+ if(!goh2PreparedTypes.has(c.type)||!$('goh2Prep0')||S.session)return;
+ const previous=c.goh2Prepared||c.spells.slice(0,3),more=c.spells.slice(previous.length);
+ const used=c.used.map(i=>[...c.abilities,...c.spells][i]);
+ c.goh2Prepared=[0,1,2].map(i=>$('goh2Prep'+i).value).filter(Boolean);
+ c.spells=[...c.goh2Prepared,...more];
+ c.used=[...c.abilities,...c.spells].map((spell,i)=>{const j=used.indexOf(spell);if(j<0)return -1;used.splice(j,1);return i}).filter(i=>i>=0);
+};
+const goh2OldLibPage=libraryPage;
+libraryPage=function(){
+ const h=goh2OldLibPage();
+ return h.replace('Every spell, heroic ability, equipment type, treasure result and skill in your Standard Edition.','Spell, equipment and treasure references from Standard Edition and A Gathering of Heroes.');
+};
+const goh2OldLibCards=libCards;
+libCards=function(){
+ const h=goh2OldLibCards(), rows=library[libTab];
+ if(!rows?.some(v=>v.gohPage))return h;
+ return h.replace(/<article class="panel stack catalog-card">[\s\S]*?<\/article>/g,card=>{
+  const v=rows.find(x=>x.gohPage&&card.includes('<h3>'+esc(x.name)+'</h3>'));
+  if(!v)return card;
+  return card.replace(/Book p\. [0-9-]+/,'Gathering of Heroes p. '+v.gohPage).replace('</article>','<button type="button" class="creature-source" onclick="openGohReference('+v.gohPage+')">Read in your supplement</button></article>');
+ });
+};
+const goh2HoardRanks=['A','K','Q','J','10','9','8','7','6','5','4','3','2'];
+const goh2HoardPages=[
+ ['♦',[155,156,156,157,157,157,157,157,158,158,158,159,159]],
+ ['♥',[159,160,160,160,160,160,161,161,161,161,162,162,162]],
+ ['♣',[162,163,163,163,163,164,164,164,165,165,165,166,166]],
+ ['♠',[166,167,167,167,167,168,168,168,168,169,169,169,170]]
+];
+const goh2Hoard=Object.fromEntries(goh2HoardPages.flatMap(([s,p])=>goh2HoardRanks.map((r,i)=>[r+s,p[i]])));
+const goh2HoardFound=()=>S.goh2HoardFound||{};
+const goh2HoardKeys=()=>Object.keys(goh2Hoard);
+function goh2DrawHoard(){
+ const remain=goh2HoardKeys().filter(k=>!Object.hasOwn(goh2HoardFound(),k));
+ if(!remain.length){toast('Every Weapon Hoard card has been found.');return}
+ const key=remain[rnd(remain.length)-1];
+ S.goh2HoardFound={...goh2HoardFound(),[key]:{name:'Hoard '+key,owner:'',identified:[]}};
+ commit();goh2OpenHoard(key);
+}
+function goh2RecordHoard(){
+ const key=$('goh2HoardPick').value;
+ if(!Object.hasOwn(goh2Hoard,key)||Object.hasOwn(goh2HoardFound(),key)){toast('Choose an unrecorded physical card.');return}
+ S.goh2HoardFound={...goh2HoardFound(),[key]:{name:'Hoard '+key,owner:'',identified:[]}};
+ commit();goh2OpenHoard(key);
+}
+function goh2SaveHoard(key){
+ const record=goh2HoardFound()[key];
+ if(!record)return;
+ const name=$('goh2HoardName').value.trim()||'Hoard '+key,owner=$('goh2HoardOwner').value;
+ const figure=owner?get(owner):null,old=record.owner?get(record.owner):null;
+ if(owner&&(!figure||animals.includes(figure.type)||figure.dead||figure.retired))return;
+ const item=all().flatMap(c=>c.inventory||[]).find(x=>x.goh2Card===key);
+ if(figure&&figure!==old&&figure.kind==='companion'&&(figure.inventory||[]).length>=2){toast('This companion has no spare item slot.');return}
+ if(figure&&figure!==old&&figure.kind==='ranger'&&guideSlotCount(figure)+(/two-handed weapon/i.test(name)?2:1)>(figure.gathering?.archetype==='Encarnoth Delver'||figure.gathering?.traits?.some(t=>t.name==='Pack Rat')?7:6)){toast('This ranger has no spare item slot.');return}
+ for(const c of all())if(c.inventory)c.inventory=c.inventory.filter(x=>x.goh2Card!==key);
+ if(figure)(figure.inventory||=[]).push({...item,id:item?.id||uid(),name,goh2Card:key,charges:item?.charges??null,maxCharges:item?.maxCharges??null});
+ record.name=name;record.owner=owner;record.identified=$('goh2Identify').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,20);
+ commit();goh2OpenHoard(key);toast('Weapon Hoard entry saved.');
+}
+function goh2OpenHoard(key=''){
+ const d=$('editor'), found=goh2HoardFound(), row=found[key];
+ if(d.open)d.close();
+ const optsRemain=goh2HoardKeys().filter(k=>!Object.hasOwn(found,k));
+ const gohRows=Object.entries(found).filter(([k])=>Object.hasOwn(goh2Hoard,k));
+ const figures=all().filter(c=>!c.dead&&!c.retired&&!animals.includes(c.type));
+ d.innerHTML='<div class="stack"><div class="eyebrow">A Gathering of Heroes • Armoury</div><div class="row between"><h2>Weapon Hoard</h2><button type="button" onclick="$(\'editor\').close()">Close</button></div><p>Use this optional deck when the game awards a roll on the Weapons and Armour table. Each card is unique to this campaign. Refer to your supplement for identification rolls and unlocked effects.</p><div class="row"><button class="primary" onclick="goh2DrawHoard()"'+(optsRemain.length?'':' disabled')+'>Draw an unclaimed card</button><button onclick="openGohReference(154)">Hoard rules</button></div><div class="row"><select id="goh2HoardPick" aria-label="Physical card">'+opts(['',...optsRemain],'')+'</select><button onclick="goh2RecordHoard()"'+(optsRemain.length?'':' disabled')+'>Record physical draw</button></div>'+(row?'<div class="panel stack"><div class="row between"><h3>'+esc(key)+' • '+esc(row.name)+'</h3><button onclick="openGohReference('+goh2Hoard[key]+')">Exact entry, p. '+goh2Hoard[key]+'</button></div><label>Name or weapon type<input id="goh2HoardName" maxlength="120" value="'+esc(row.name)+'"></label><label>Bearer<select id="goh2HoardOwner"><option value="">Campaign stash</option>'+figures.map(c=>'<option value="'+esc(c.id)+'"'+(row.owner===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label><label>Unlocked features and usage notes<textarea id="goh2Identify" maxlength="1600">'+esc((row.identified||[]).join('\n'))+'</textarea></label><small>Record the effects your character has identified. Charge and effect resolution are manual.</small><button class="primary" onclick="goh2SaveHoard(\''+key+'\')">Save hoard entry</button></div>':'')+'<h3>Campaign finds • '+gohRows.length+' / 52</h3><div class="stack">'+(gohRows.map(([k,v])=>'<button type="button" onclick="goh2OpenHoard(\''+k+'\')">'+esc(k+' • '+v.name+(v.owner&&get(v.owner)?' • '+get(v.owner).name:' • Stash'))+'</button>').join('')||'<small>No Weapon Hoard cards found.</small>')+'</div></div>';
+ d.showModal();
+}
+const goh2LibPageWithGear=libraryPage;
+libraryPage=function(){
+ const h=goh2LibPageWithGear();
+ return h.replace('<div id="libCards">','<section class="panel row between section"><div><b>Gathering of Heroes: Weapon Hoard</b><p class="muted">Draw or record a unique find, then track its bearer and unlocked properties.</p></div><button type="button" onclick="goh2OpenHoard()">Open 52-card Hoard</button></section><div id="libCards">');
+};
+
+
+/* Optional guided Hoard replacement for a Weapons and Armour treasure result. */
+const goh2GuideTreasure=guideTreasure;
+guideTreasure=function(){
+ const pending=G()?.pendingTreasure;
+ if(pending?.goh2Card)return goh2GuideHoardPanel(pending);
+ goh2GuideTreasure();
+ const current=G()?.pendingTreasure,form=$('gtForm');
+ if(form&&current?.group==='Enchantments'&&goh2HoardKeys().some(k=>!Object.hasOwn(goh2HoardFound(),k))){
+  form.querySelector('button[type=submit]')?.insertAdjacentHTML('afterend','<button type="button" onclick="goh2BeginGuideHoard()">Use Weapon Hoard instead</button>');
+ }
+};
+function goh2BeginGuideHoard(){
+ const g=G(),t=g?.pendingTreasure;
+ if(!t||t.group!=='Enchantments'||t.goh2Card)return;
+ const remain=goh2HoardKeys().filter(k=>!Object.hasOwn(goh2HoardFound(),k));
+ if(!remain.length){toast('Every Hoard card has already been found.');return}
+ if(!confirm('Replace this Weapons and Armour result with a unique Weapon Hoard card? The card will be saved for this treasure token.'))return;
+ const key=remain[rnd(remain.length)-1];
+ S.goh2HoardFound={...goh2HoardFound(),[key]:{name:'Hoard '+key,owner:'',identified:[]}};
+ t.goh2Card=key;
+ commit();goh2GuideHoardPanel(t);
+}
+function goh2GuideHoardPanel(t){
+ if(!t||!Object.hasOwn(goh2Hoard,t.goh2Card))return;
+ const key=t.goh2Card, d=$('editor'),row=goh2HoardFound()[key],page=goh2Hoard[key];
+ if(d.open)d.close();
+ d.innerHTML='<div class="stack"><div class="eyebrow">Guided after-action • Weapon Hoard</div><h2>'+esc(key)+' • Unique find</h2><p>Your card is saved. Read its entry, name the recovered item, and record it in your campaign stash. Arrange ownership and identification in Spellbook &amp; gear.</p><div class="row"><button onclick="openGohReference('+page+')">Read exact entry, p. '+page+'</button></div><label>Item name<input id="goh2GuideName" maxlength="120" value="'+esc(row?.name||'Hoard '+key)+'"></label><button class="primary" onclick="goh2FinishGuideHoard()">Record recovered item</button><button onclick="$(\'editor\').close()">Close / decide later</button></div>';
+ d.showModal();
+}
+function goh2FinishGuideHoard(){
+ const g=G(),t=g?.pendingTreasure,key=t?.goh2Card,row=goh2HoardFound()[key];
+ if(!row||g.treasure.length>=g.secured)return;
+ const name=$('goh2GuideName').value.trim()||row.name;
+ row.name=name;g.treasure.push({...t,name,recipient:row.owner&&get(row.owner)?get(row.owner).name:'Campaign stash'});
+ delete g.pendingTreasure;
+ guideLog(name+' recovered (Weapon Hoard '+key+')');
+ $('editor').close();commit();toast('Weapon Hoard find recorded.');
+}
+
+
+/* The Hoard's equipment categories, indexed in rank order by suit. */
+const goh2HoardNames=Object.fromEntries([
+ ['♦',['Enchanted Hand Weapon','Enchanted Two-handed Weapon','Enchanted Dagger','Enchanted Bow','Hand Weapon','Enchanted Heavy Armour','Enchanted Two-handed Weapon','Enchanted Staff','Enchanted Shield','Enchanted Hand Weapon','Crossbow','Enchanted Two-handed Weapon','Light Armour']],
+ ['♥',['Enchanted Dagger','Enchanted Throwing Knife','Enchanted Hand Weapon','Dagger and Throwing Knives','Hand Weapon','Enchanted Hand Weapon','Enchanted Quiver','Enchanted Dagger','Enchanted Sword','Enchanted Two-handed Weapon','Enchanted Light Armour','Enchanted Bow','Enchanted Shield']],
+ ['♣',['Two-handed Weapon','Enchanted Throwing Knife','Crossbow','Enchanted Hand Weapon','Enchanted Hand Weapon','Enchanted Two-handed Weapon','Enchanted Dagger','Enchanted Hand Weapon','Enchanted Hand Weapon','Enchanted Two-handed Weapon','Enchanted Hand Weapon','Enchanted Hand Weapon','Enchanted Two-handed Weapon']],
+ ['♠',['Enchanted Two-handed Weapon','Enchanted Hand Weapon','Enchanted Dagger','Enchanted Shield','Enchanted Bow','Enchanted Staff','Enchanted Quiver','Enchanted Hand Weapon','Enchanted Hand Weapon','Enchanted Shield','Two-handed Weapon','Enchanted Dagger','Enchanted Hand Weapon']]
+].flatMap(([s,a])=>goh2HoardRanks.map((r,i)=>[r+s,a[i]])));
+function goh2UseHoardTitle(key,field){
+ const current=$('editor')?.querySelector('#'+field);
+ if(current&&current.value==='Hoard '+key&&goh2HoardNames[key])current.value=goh2HoardNames[key]+' ('+key+')';
+}
+const goh2OpenHoardBeforeTitles=goh2OpenHoard;
+goh2OpenHoard=function(key=''){
+ goh2OpenHoardBeforeTitles(key);goh2UseHoardTitle(key,'goh2HoardName');
+};
+if(typeof goh2GuideHoardPanel==='function'){
+ const goh2GuideHoardBeforeTitles=goh2GuideHoardPanel;
+ goh2GuideHoardPanel=function(t){goh2GuideHoardBeforeTitles(t);goh2UseHoardTitle(t?.goh2Card,'goh2GuideName')};
+}
+
+for(const [name,xp] of [['Bear',4],['Boar',3],['Tiger',4],['Lion',0]]){
+ if(!monsters[name])monsters[name]=[...gohExtra[name][1],xp,gohExtra[name][5]];
+}
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
