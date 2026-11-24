@@ -457,7 +457,7 @@ const guideOldPrepare=prepareMission;prepareMission=function(){let was=S.session
 const guideOldPlay=play;play=function(){let html=guideOldPlay();if(!S.session)return html;return guidePanel()+`<details class="panel section" ${G().post?'open':''}><summary>Full battle controls, scenario rules & activity log</summary>${html}</details>`};
 finishScenario=function(){guidePostStart();};
 // Validated ranger advancement. Apply the entire reward atomically, without pending upgrades.
-levelup=function(id){let c=get(id),l=c.level+1;if(S.session){toast('Complete the scenario before leveling.');return}if(c.xp<cost(l)||l>100)return;let kind=l%4,d=$('editor'),caps=[7,5,5,0,8,22];let reward=kind===1?'Distribute +5 skill points (max +2 each)':kind===2?'Increase one stat by +1':kind===3?'Increase base recruitment by 10':'Choose one heroic ability or spell';let choices=kind===1?`<div class="skillgrid">${skills.map((x,i)=>field(x,input('lv'+i,0,'number','min=0 max=2 step=1'))).join('')}</div>`:kind===2?field('Stat',`<select id="lvStat">${statNames.map((x,i)=>i!==3&&c.stats[i]<caps[i]?`<option value="${i}">${x} (${c.stats[i]} → ${c.stats[i]+1})</option>`:'').join('')}</select>`):kind===0?field('Ability or spell',`<select id="lvKnown">${abilities.filter(x=>!c.abilities.includes(x)).map(x=>`<option value="A:${esc(x)}">Ability · ${esc(x)}</option>`).join('')}${spells.map(x=>`<option value="S:${esc(x)}">Spell · ${esc(x)}</option>`).join('')}</select>`):'';d.innerHTML=`<form class="stack" id="lvForm"><h2>${esc(c.name)} · Level ${l}</h2><p>${reward}</p><small>${cost(l)} XP required · ${c.xp} available. Stat caps use effective sheet values; gear or injuries may require manual correction.</small>${choices}<button class="primary" type="submit">Apply advancement</button><button type="button" onclick="$('editor').close()">Cancel</button></form>`;d.showModal();$('lvForm').onsubmit=e=>{e.preventDefault();if(kind===1){let v=skills.map((_,i)=>+$('lv'+i).value);if(v.some(x=>!Number.isInteger(x)||x<0||x>2)||v.reduce((a,b)=>a+b,0)!==5){toast('Allocate exactly five points, maximum two per skill.');return}skills.forEach((x,i)=>c.skills[x]=n(c.skills[x])+v[i]);}else if(kind===2){let i=Number($('lvStat').value);if(!$('lvStat').value||i===3||c.stats[i]>=caps[i]){toast('Choose an eligible stat.');return}c.stats[i]++;if(i===5)c.hp++;}else if(kind===3)c.brp+=10;else{let v=$('lvKnown').value;if(v.startsWith('A:'))c.abilities.push(v.slice(2));else c.spells.push(v.slice(2));}c.xp-=cost(l);c.level=l;d.close();commit();toast('Level '+l+' reward applied');};};
+levelup=function(id){let c=get(id),l=c.level+1;if(S.session){toast('Complete the scenario before leveling.');return}if(c.xp<cost(l)||l>100)return;let kind=l%4,d=$('editor'),caps=[7,5,5,0,8,22],canSwim=heroCanTrainSwim(c);let reward=kind===1?'Distribute +5 skill points (max +2 each)':kind===2?'Increase one stat by +1':kind===3?'Increase base recruitment by 10':'Choose one heroic ability or spell';let choices=kind===1?`<div class="skillgrid">${skills.map((x,i)=>field(x,input('lv'+i,0,'number','min=0 max=2 step=1'+(x==='Swim'&&!canSwim?' disabled':'')))).join('')}</div>`:kind===2?field('Stat',`<select id="lvStat">${statNames.map((x,i)=>i!==3&&c.stats[i]<caps[i]?`<option value="${i}">${x} (${c.stats[i]} → ${c.stats[i]+1})</option>`:'').join('')}</select>`):kind===0?field('Ability or spell',`<select id="lvKnown">${heroAdvanceOptions(c).map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('')}</select>`):'';d.innerHTML=`<form class="stack" id="lvForm"><h2>${esc(c.name)} · Level ${l}</h2><p>${reward}</p><small>${cost(l)} XP required · ${c.xp} available. Stat caps use effective sheet values; gear or injuries may require manual correction.</small>${choices}${kind===0||kind===2?heroAdvanceTraitMarkup(c):''}<button class="primary" type="submit">Apply advancement</button><button type="button" onclick="$('editor').close()">Cancel</button></form>`;d.showModal();$('lvForm').onsubmit=e=>{e.preventDefault();if(S.session||c.level!==l-1||c.xp<cost(l))return;let trait=(kind===0||kind===2)?heroEarnTrait(c,l):null;if(trait===false){toast('Choose a legal trait and enter its required specialization.');return}if(trait){c.gathering||={};c.gathering.traits||=[];c.gathering.traits.push(trait);if(trait.name==='Skill Master'){let k=skills.find(x=>x.toLowerCase()===trait.detail.toLowerCase());c.skills[k]=n(c.skills[k])+3}}else if(kind===1){let v=skills.map((_,i)=>+$('lv'+i).value);if(v.some(x=>!Number.isInteger(x)||x<0||x>2)||v.reduce((a,b)=>a+b,0)!==5||(!canSwim&&v[skills.indexOf('Swim')]>0)){toast('Allocate exactly five points, maximum two per eligible skill.');return}skills.forEach((x,i)=>c.skills[x]=n(c.skills[x])+v[i]);}else if(kind===2){let i=Number($('lvStat').value);if(!$('lvStat').value||!Number.isInteger(i)||i<0||i>=caps.length||i===3||c.stats[i]>=caps[i]){toast('Choose an eligible stat.');return}c.stats[i]++;if(i===5)c.hp++;}else if(kind===3)c.brp+=10;else{let v=$('lvKnown').value;if(!heroAdvanceOptions(c).some(([k])=>k===v)){toast('Choose an eligible heroic ability or spell. Your XP was not spent.');return}if(v.startsWith('A:'))c.abilities.push(v.slice(2));else c.spells.push(v.slice(2));}c.xp-=cost(l);c.level=l;d.close();commit();toast('Level '+l+' reward applied');};};
 
 
 // Stable tabletop identifiers, shared by all spawning and combat paths.
@@ -1997,6 +1997,80 @@ partyStatus=function(draft=null){
  if(blocked)return {...status,legal:false,reason:'Confirm '+blocked.type+'’s special recruitment requirement in their companion sheet.'};
  return status;
 };
+
+
+/* Apply the same book-based eligibility rules to the menu and to XP spending. */
+const heroAdvanceA={
+ 'Red Hawk Knight':'Call to Action|Dash|Deadly Strike:2|Distraction|Dive for Cover:2|Evade|Flashing Blade|Frenzied Attack|Hand of Fate|Inner Strength|Parry:2|Powerful Blow:2|Quick Strike|Roll with the Punch|Shove',
+ 'Chthonian Mage':'Blend into the Shadows|Distraction|Dive for Cover|Eldritch Recall|Enhanced Power|Evade|Focus|Halt Undead|Hand of Fate|Inner Strength|Parry|Quick Cast|Roll with the Punch|Split Cast',
+ 'River Shark':'Call to Action|Dash|Deadly Shot:2|Deadly Strike|Distraction|Dive for Cover:2|Evade|Flashing Blade|Frenzied Attack|Hand of Fate|Inner Strength|Parry:2|Powerful Blow|Roll with the Punch|Shove|Steady Aim|Tumble',
+ 'Servant of Seth':'Blend into the Shadows|Deadly Shot|Deadly Strike|Distraction|Dive for Cover|Evade|Focus|Hand of Fate|Inner Strength|Parry|Roll with the Punch',
+ 'Varakian Archer':'Blend into the Shadows|Dash|Deadly Shot:2|Dive for Cover|Double Shot|Evade|Fire Shot:2|Hand of Fate|Inner Strength|Parry|Roll with the Punch|Smoke Shot:2|Steady Aim:2',
+ 'Vampire Hunter':'Blend into the Shadows|Call to Action|Dash|Deadly Shot|Distraction|Dive for Cover|Evade|Focus|Halt Undead|Hand of Fate|Inner Strength|Parry|Powerful Blow|Roll with the Punch|Shove',
+ 'Scrollmaster of Melnoth':'Distraction|Dive for Cover|Eldritch Recall|Enhanced Power|Evade|Focus|Hand of Fate|Inner Strength|Quick Cast|Roll with the Punch|Split Cast',
+ 'Encarnoth Delver':'Blend into the Shadows|Call to Action|Dash|Distraction|Dive for Cover|Evade|Focus|Hand of Fate|Inner Strength|Parry|Roll with the Punch|Shove|Steady Aim',
+ 'Wasteland Firesword':'Call to Action|Dash|Deadly Shot|Deadly Strike:2|Distraction|Dive for Cover|Evade:2|Flashing Blade|Frenzied Attack|Hand of Fate|Inner Strength|Parry:2|Powerful Blow|Roll with the Punch|Shove|Steady Aim|Whirling Death'
+};
+const heroAdvanceS={
+ 'Servant of Seth':'Awareness|Armour|Burning Light|Burning Mark|Caltrops|Compass|Enchanted Steel|Glow|Heal|Ladder|Leap|Light|Lure|Open|Shield of Light|Slow|Smoke|Strength|Strong Heart|Translate|Weakness',
+ 'Vampire Hunter':'Awareness|Burning Light|Compass|Enchanted Steel|Glow|Hold Creature|Insect Climb|Light|Lure|Open|Slow|Smoke|Summon Crow|Swat|Translate|Weakness',
+ 'Encarnoth Delver':'Awareness|Compass|Heal|Insect Climb|Ladder|Leap|Open|Quickness|Slow|Smoke|Translate'
+};
+const heroNoSpells=['Red Hawk Knight','River Shark','Varakian Archer','Wasteland Firesword'];
+const heroRestrictedSpells=['Armour','Burning Light','Fireball','Magic Bolt'];
+const heroRareA=goh2Options.Abilities.map(x=>x[0]).filter(x=>x!=='Sneak Attack');
+const heroRareS=goh2Options.Spells.map(x=>x[0]);
+function heroAdvanceOptions(c){
+ const arch=c.gathering?.archetype, traits=c.gathering?.traits||[], out=[];
+ const has=(trait,item)=>traits.some(t=>t.name===trait&&String(t.detail).trim().toLowerCase()===item.toLowerCase());
+ const avail=Object.hasOwn(heroAdvanceA,arch)?Object.fromEntries(heroAdvanceA[arch].split('|').map(s=>{const [k,v]=s.split(':');return [k,+(v||1)]})):Object.fromEntries(abilities.filter(x=>!goh2Options.Abilities.some(a=>a[0]===x)).map(x=>[x,1]));
+ for(const nm of new Set([...Object.keys(avail),...heroRareA.filter(x=>has('Rare Heroic Ability',x))])){
+  if(c.abilities.filter(x=>x===nm).length<(Object.hasOwn(avail,nm)?avail[nm]:1))out.push(['A:'+nm,'Ability · '+nm]);
+ }
+ if(heroNoSpells.includes(arch))return out;
+ const main=spells.filter(x=>!heroRareS.includes(x));
+ const list=Object.hasOwn(heroAdvanceS,arch)?heroAdvanceS[arch].split('|'):main;
+ const extras=[...(arch==='Chthonian Mage'?heroRareS.slice(0,3):arch==='Scrollmaster of Melnoth'?heroRareS.slice(3):[]),...heroRareS.filter(x=>has('Rare Spell',x))];
+ for(const nm of new Set([...list,...extras])){
+  if((arch==='Vampire Hunter'||(arch==='Chthonian Mage'&&heroRestrictedSpells.includes(nm)))&&c.spells.includes(nm))continue;
+  out.push(['S:'+nm,'Spell · '+nm]);
+ }
+ return out;
+}
+function heroAdvanceTraitOptions(c){
+ const g=c.gathering||{}, traits=g.traits||[];
+ return gohTraits.filter(([name])=>(gohRepeat.has(name)||!traits.some(t=>t.name===name))
+  &&(!heroNoSpells.includes(g.archetype)||!['Innate Spell','Rare Spell','Spellbook Caster','Spellcaster'].includes(name))
+  &&(!(g.minor||[]).includes('No Sense of Balance')||name!=='Steady Feet'));
+}
+function heroAdvanceTraitMarkup(c){
+ return '<label for="lvTrait">Earn a trait instead</label><select id="lvTrait"><option value="">Use the regular reward</option>'+heroAdvanceTraitOptions(c).map(x=>'<option>'+esc(x[0])+'</option>').join('')+'</select><label for="lvTraitDetail">Specialization if required</label><input id="lvTraitDetail" maxlength="160" placeholder="e.g. the skill, vow or rare spell">';
+}
+function heroEarnTrait(c,l){
+ const name=$('lvTrait')?.value;if(!name)return null;
+ const rec=heroAdvanceTraitOptions(c).find(t=>t[0]===name), detail=($('lvTraitDetail')?.value||'').trim();
+ const opts=name==='Rare Spell'?heroRareS:name==='Rare Heroic Ability'?heroRareA:name==='Skill Master'?skills:null;
+ if(!rec||(rec[3]&&!detail)||(opts&&!opts.some(x=>x.toLowerCase()===detail.toLowerCase())))return false;
+ if((c.gathering?.traits||[]).some(t=>t.name===name&&String(t.detail).toLowerCase()===detail.toLowerCase()))return false;
+ return {name,detail,atLevel:l};
+}
+const heroTraitRowBase=gohTraitRow;
+gohTraitRow=function(t={}){
+ const h=heroTraitRowBase(t);return t.atLevel?h.replace('class="fields goh-trait"','class="fields goh-trait" data-at-level="'+Number(t.atLevel)+'"')
+  .replace('class="goh-name"','class="goh-name" disabled').replace('class="goh-detail"','class="goh-detail" readonly')
+  .replace(/<button[^>]+>Remove trait<\/button>/,'<small>Earned at level '+Number(t.atLevel)+'</small>'):h;
+};
+const heroCollectBeforeLevels=gohCollect;
+gohCollect=function(){
+ const d=heroCollectBeforeLevels(),rows=[...$('gohTraits').querySelectorAll('.goh-trait')].filter(e=>e.querySelector('.goh-name').value);
+ d.traits.forEach((t,i)=>{const l=Number(rows[i]?.dataset.atLevel);if(l>0)t.atLevel=l});
+ return d;
+};
+const heroCheckBeforeLevels=gohCheck;
+gohCheck=function(g){return heroCheckBeforeLevels({...g,traits:g.traits.filter(t=>!t.atLevel)})};
+function heroCanTrainSwim(c){
+ return c.gathering?.archetype!=='Wasteland Firesword'&&!(c.gathering?.minor||[]).includes('Cannot Swim');
+}
 
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
