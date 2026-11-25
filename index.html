@@ -2270,7 +2270,7 @@ prepareMission=function(){if(ARENA)return arenaStart();return arenaOldPrepare()}
 navs.splice(navs.findIndex(x=>x[0]==='campaign')+1,0,['training','Training Arena','dice']);
 if(ARENA){
  if(!S.arenaVersion){S=arenaSeed();savedSnapshot=JSON.stringify(S);}
- const hide=new Set(['campaign','dashboard','settings']);
+ const hide=new Set(['campaign','dashboard']);const backupNav=navs.find(x=>x[0]==='settings');if(backupNav)backupNav[1]='Training backup';
  for(let i=navs.length-1;i>=0;i--)if(hide.has(navs[i][0]))navs.splice(i,1);
  tab=S.session?'play':'training';document.title='Training Arena | Rangers of Shadow Deep';const backupButton=document.getElementById("backupButton");if(backupButton)backupButton.textContent='Training backup';
 }
