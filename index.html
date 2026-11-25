@@ -1134,7 +1134,7 @@ function go2Special(){
 }
 function go2Side(){
  const x=S.session?.go2,m=go2Details();if(!x||!m||G().post||!['wagon','door'].includes(m.side)||!x.sideDeck.length)return;
- const card=x.sideDeck.pop();x.sideDrawn.unshift(card);appendField((m.side==='wagon'?'Wagon':'Door')+' revealed: '+card);commit();
+ const card=x.sideDeck.pop();x.sideDrawn.unshift(card);gorbinState();appendField((m.side==='wagon'?'Wagon':'Door')+' revealed: '+card);commit();
 }
 function go2Counter(delta){
  const x=S.session?.go2,m=go2Details();if(!x||!m?.counter||G().post)return;
@@ -2079,15 +2079,6 @@ const heroPriorDraw=drawCompanionSheet;
 drawCompanionSheet=function(){
  heroPriorDraw();
  const c=companionDraft,select=$('cpType');if(companionNew&&select)select.innerHTML=heroRecruitGroups(c.type);
- if(c.type!=='Gorbin'||S.session)return;
- const box=$('cpBudget'),f=$('compForm');if(!box||!f)return;
- const text=c.type==='Gorbin'?'Gorbin survived Prison Break.':'Nesra survived Ghost Stone and passed the Leadership TN18 check for this mission.';
- box.insertAdjacentHTML('beforebegin','<label class="check"><input id="heroRecruitCondition" type="checkbox" '+(c.heroRecruitCondition?'checked':'')+'> '+esc(text)+'</label>');
- const submit=f.onsubmit;f.onsubmit=e=>{
-  if($('cpActive').checked&&!$('heroRecruitCondition').checked){e.preventDefault();toast('Confirm the printed recruitment condition before deploying this companion.');return}
-  c.heroRecruitCondition=$('heroRecruitCondition').checked;
-  submit(e);
- };
 };
 const heroPriorStatus=partyStatus;
 partyStatus=function(draft=null){
@@ -2096,8 +2087,11 @@ partyStatus=function(draft=null){
  if(draft?.active!==false&&draft)figures.push(draft);
  const nesra=figures.find(c=>c.type==='Nesra'&&!c.scenarioFree);
  if(nesra&&!nesraLegal())return {...status,legal:false,reason:'Nesra needs a passing Leadership TN18 check for this mission. Open the mission briefing, or move her to reserve.'};
- const blocked=figures.find(c=>c.type==='Gorbin'&&!c.scenarioFree&&!c.heroRecruitCondition);
- if(blocked)return {...status,legal:false,reason:'Confirm '+blocked.type+'’s special recruitment requirement in their companion sheet.'};
+ const gorbins=figures.filter(c=>c.type==='Gorbin'&&!c.scenarioFree);if(gorbins.length>1&&!ARENA)return {...status,legal:false,reason:'Only one Gorbin can deploy. Move the duplicate to reserve.'};const gorbin=gorbins[0];
+ if(gorbin){
+  const reason=!ARENA&&S.scenario==='Prison Break'?'Gorbin enters Prison Break through its doorway encounter. Move the paid companion to reserve.':gorbinRosterReason(gorbin);
+  if(reason)return {...status,legal:false,reason};
+ }
  return status;
 };
 
@@ -2504,7 +2498,7 @@ function sheetClaimComp(id,p){
  c.ppClaimed.push(p);$('editor').close();commit();toast('Companion reward applied.');
 }
 function sheetCompNeedsPrep(c){
- return ['Chthonian Mage','Scrollmaster of Melnoth','Conjuror','Gorbin'].includes(c.type)&&!c.go2Temp;
+ return ['Chthonian Mage','Scrollmaster of Melnoth','Conjuror'].includes(c.type)&&!c.go2Temp;
 }
 function sheetPrepComp(id){
  const c=get(id),d=$('editor');if(!c||S.session||c.dead||c.retired||!sheetCompNeedsPrep(c))return;
@@ -2958,6 +2952,140 @@ const nesraPriorCampaign=campaign;
 campaign=function(){return nesraCheckPanel()+nesraPriorCampaign()};
 const nesraPriorReview=sheetReviewPage;
 sheetReviewPage=function(){return nesraCheckPanel()+nesraPriorReview()};
+
+
+/* Gathering pp. 145–146, 152–153: Gorbin in Prison Break and later recruitment. */
+function gorbinScene(){return !ARENA&&S.scenario==='Prison Break'?S.session?.go2:null}
+function gorbinState(){
+ const x=gorbinScene();if(!x)return null;
+ if(!x.gorbin&&x.sideDrawn?.includes('Black 2'))x.gorbin={status:'revealed',checks:[]};
+ return x.gorbin||null;
+}
+function gorbinFigure(x=gorbinState()){return x?.id?(get(x.id)||S.enemies.find(e=>e.id===x.id)):null}
+function gorbinUnlock(){
+ if(ARENA)return true;
+ const records=S.history.filter(h=>h.scenario==='Prison Break'),latest=records[0];
+ if(!latest)return false;
+ const c=latest.finalHeroes?.find(c=>c.type==='Gorbin'&&c.scenarioFree);
+ return c?!c.dead&&!c.retired:!latest.go2?.gorbinTracked&&S.gorbinLegacy===latest.id;
+}
+function gorbinLegacyPanel(){
+ if(ARENA||S.session||gorbinUnlock())return '';
+ const h=S.history.find(h=>h.scenario==='Prison Break');
+ return h&&!h.go2?.gorbinTracked&&!h.finalHeroes?.some(c=>c.type==='Gorbin'&&c.scenarioFree)?
+ '<section class="panel stack section"><h3>Older Prison Break record</h3><p>This result predates tracking Gorbin. Confirm only if he both joined your party and survived the mission on your table.</p><button onclick="gorbinConfirmLegacy()">Confirm that Gorbin survived</button></section>':'';
+}
+function gorbinConfirmLegacy(){
+ if(!gorbinLegacyPanel()||!confirm('Confirm that Gorbin joined and survived this archived Prison Break?'))return;
+ S.gorbinLegacy=S.history.find(h=>h.scenario==='Prison Break').id;commit();
+}
+function gorbinRosterReason(c){
+ if(ARENA)return '';
+ if(!gorbinUnlock())return 'Gorbin must join and survive Prison Break before you can recruit him.';
+ if((!c||!S.companions.some(x=>x.id===c.id))&&S.companions.some(x=>x.type==='Gorbin'&&!x.scenarioFree))return 'Gorbin already has a roster entry.';
+ return '';
+}
+function gorbinPanel(){
+ const x=gorbinState(),c=gorbinFigure(x);if(!x)return '';
+ const live=!G().post, first=x.status==='revealed', hostile=x.status==='hostile',able=c&&c.hp>0;
+ const last=x.checks.at(-1);
+ return '<div class="note stack"><h3>Gorbin · Doorway encounter</h3><p>'+
+ (first?'Place Gorbin at the doorway. He begins wounded and unarmed. Record the opening figure’s Leadership check (TN8).':
+ (hostile?'Gorbin is hostile. A hero within 6 inches can spend an action to attempt Leadership TN8 again.':'Gorbin has joined as a free auxiliary. His after-action result determines later recruitment.')+
+ (c?' '+c.hp+' / '+c.stats[5]+' Health. '+(x.armed?'Armed.':'Unarmed: −2 Fight and −2 damage.') :''))+'</p>'+
+ (last?'<small>Last check: '+esc(last.name)+' rolled '+last.total+' vs TN8.</small>':'')+
+ (live&&(first||hostile&&able)?'<button onclick="gorbinOpenCheck()">'+(first?'Record opening Leadership check':'Attempt to turn Gorbin friendly')+'</button>':'')+
+ (live&&able&&!x.armed?'<button onclick="gorbinArm()">Record a weapon handed to Gorbin</button>':'')+
+ (c&&c.hp===0&&!x.heroKilled?'<button onclick="gorbinSetKill(true)">Record that a hero killed Gorbin (−10 XP)</button>':'')+
+ (x.heroKilled?'<p>Hero kill recorded: −10 XP at archive.</p><button onclick="gorbinSetKill(false)">Undo hero-kill entry</button>':'')+'</div>';
+}
+function gorbinSetKill(value){
+ const x=gorbinState(),c=gorbinFigure(x);if(!x||value&&(!c||c.hp!==0))return;
+ x.heroKilled=!!value;appendField(value?'A hero killed Gorbin; −10 XP at archive.':'Gorbin hero-kill penalty cleared.');commit();
+}
+function gorbinOpenCheck(){
+ const x=gorbinState(),c=gorbinFigure(x);if(!x||G().post)return;
+ const first=x.status==='revealed';
+ const rs=first?guideHeroes().filter(r=>r.hp>0&&!r.dead&&!fieldState().exited.includes(r.id)):[get(G().actor)].filter(r=>r&&r.hp>0&&guideCanAction(r.id,'other'));
+ if(!first&&(x.status!=='hostile'||!c||c.hp<=0)||!rs.length){toast('Activate a nearby hero with an action remaining.');return}
+ const d=$('editor');
+ d.innerHTML='<form class="stack" id="gorbinRoll"><h2>Gorbin · Leadership TN8</h2><label for="gorbinWho">'+(first?'Figure who opened the door':'Active hero')+'</label><select id="gorbinWho">'+rs.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.name)+' (Leadership '+n(r.skills?.Leadership)+')</option>').join('')+'</select>'+(first?'':'<label class="check"><input id="gorbinNear" type="checkbox" required> This hero is within 6 inches.</label>')+'<label for="gorbinDie">Physical d20 (blank rolls here)</label><input id="gorbinDie" type="number" min="1" max="20" step="1"><label for="gorbinOther">Other legal modifiers</label><input id="gorbinOther" type="number" value="0" step="1"><button class="primary" type="submit">Record Leadership check</button><button type="button" onclick="$(\'editor\').close()">Cancel</button></form>';
+ $('gorbinRoll').onsubmit=e=>{e.preventDefault();const raw=$('gorbinDie').value;if(gorbinCheck($('gorbinWho').value,raw===''?rnd(20):Number(raw),Number($('gorbinOther').value||0),!first&&$('gorbinNear').checked))d.close()};
+ if(!d.open)d.showModal();
+}
+function gorbinCheck(id,die,extra,near){
+ const x=gorbinState(),r=get(id);if(!x||G().post||!r||r.hp<=0||r.dead||!S.session.participants.includes(id)||fieldState().exited.includes(id)||!Number.isInteger(die)||die<1||die>20||!Number.isSafeInteger(extra))return false;
+ const first=x.status==='revealed', foe=gorbinFigure(x);
+ if(!first&&(x.status!=='hostile'||!foe||foe.hp<=0||!near||!guideSpend(id,'other','Try to persuade Gorbin')))return false;
+ const total=die+n(r.skills?.Leadership)+extra,pass=total>=8;
+ x.checks.push({id,name:r.name,total,passed:pass});
+ if(pass){
+  const c=makeCompanion('Gorbin','');
+  Object.assign(c,{hp:foe?.hp??8,stats:foe?.stats.slice()||[5,1,0,12,0,14],rp:0,go2Temp:true,scenarioFree:true,equipment:x.armed?'Weapon provided at the table':'Unarmed',activated:!!foe?.activated,conditions:foe?.conditions?.slice()||[]});
+  if(foe)S.enemies=S.enemies.filter(e=>e.id!==foe.id);
+  S.companions.push(c);S.session.participants.push(c.id);x.id=c.id;x.status='joined';
+  const o=S.objectives.find(o=>o.text==='Gorbin joins');
+  if(!o?.done){if(o)o.done=true;S.scenarioXP+=5}
+ }else if(first){
+  const e={id:uid(),type:'Gorbin',name:'Gorbin',stats:[5,1,0,12,0,14],hp:8,xp:0,traits:'Large; wounded and unarmed. Can be persuaded by a nearby hero.',awarded:false,activated:false};
+  S.enemies.push(e);x.id=e.id;x.status='hostile';numberEnemies();
+ }
+ appendField(r.name+' Leadership '+total+' vs TN8: '+(pass?'Gorbin joined (+5 XP).':'Gorbin remains hostile.'));commit();return true;
+}
+function gorbinArm(){
+ const x=gorbinState(),c=gorbinFigure(x);if(!x||!c||c.hp<=0||x.armed||G().post||!confirm('Confirm that an adjacent hero handed Gorbin a weapon on the tabletop. This is a free action.'))return;
+ x.armed=true;c.stats[1]+=2;if(get(c.id))c.equipment='Weapon provided at the table';
+ appendField('Gorbin was armed by an adjacent hero; remove the weapon from the giver on the tabletop.');commit();
+}
+const gorbinBeforeSpecial=go2SpecialHTML;
+go2SpecialHTML=function(){return gorbinPanel()+gorbinBeforeSpecial()};
+const gorbinPriorRecruit=recruitTemplate;
+recruitTemplate=function(t){if(t==='Gorbin'){const reason=gorbinRosterReason();if(reason){toast(reason);return}}return gorbinPriorRecruit(t)};
+const gorbinPriorDraft=drawCompanionSheet;
+drawCompanionSheet=function(){
+ gorbinPriorDraft();const c=companionDraft,form=$('compForm'),box=$('cpBudget');
+ if(c.type!=='Gorbin'||!form||!box||S.session||ARENA)return;
+ const reason=gorbinRosterReason(c);
+ box.insertAdjacentHTML('beforebegin','<p class="note">'+esc(reason||'Unlocked by the archived Prison Break outcome. Normal 30 RP and party limits apply.')+'</p>');
+ const submit=form.onsubmit;
+ form.onsubmit=e=>{const why=gorbinRosterReason(c);if(why){e.preventDefault();toast(why);return}return submit(e)};
+};
+const gorbinBeforeCampaign=campaign;
+campaign=function(){return gorbinLegacyPanel()+gorbinBeforeCampaign()};
+const gorbinBeforeReview=sheetReviewPage;
+sheetReviewPage=function(){return gorbinLegacyPanel()+gorbinBeforeReview()};
+const gorbinBeforeObjective=objective,gorbinBeforeDeleteObjective=deleteObjective;
+function gorbinOwnObjective(id){return gorbinScene()&&S.objectives.some(o=>o.id===id&&o.text==='Gorbin joins')}
+objective=function(id){if(gorbinOwnObjective(id)){toast('Resolve the doorway encounter to record whether Gorbin joins.');return}return gorbinBeforeObjective(id)};
+deleteObjective=function(id){if(!gorbinOwnObjective(id))return gorbinBeforeDeleteObjective(id)};
+const gorbinBeforeCombat=combatTool;
+combatTool=function(){
+ gorbinBeforeCombat();
+ const x=gorbinState(),f=$('combatForm');if(!x?.id||!f?.onsubmit)return;
+ const submit=f.onsubmit;
+ f.onsubmit=e=>{
+  const a=$('ca').value,b=$('cb').value,wa=$('cwa'),wb=$('cwb'),oldA=wa.value,oldB=wb.value;
+  if(!x.armed&&a===x.id)wa.value=Number(oldA||0)-2;
+  if(!x.armed&&b===x.id)wb.value=Number(oldB||0)-2;
+  try{submit(e)}finally{wa.value=oldA;wb.value=oldB}
+  const apply=$('applyCombat');if(!apply?.onclick)return;
+  const oldApply=apply.onclick;
+  apply.onclick=()=>{
+   const c=gorbinFigure(x),possible=c?.hp>0&&((a===x.id&&get(b))||(b===x.id&&get(a)));
+   oldApply();
+   if(possible&&c.hp===0&&!x.heroKilled)gorbinSetKill(true);
+  };
+ };
+};
+const gorbinBeforeArchive=guideArchive;
+guideArchive=function(){
+ const state=gorbinScene();if(!state)return gorbinBeforeArchive();
+ const x=gorbinState();if(x?.status==='revealed'){toast('Return to battle and resolve the revealed Gorbin encounter before archiving.');return}
+ const sessionId=S.session.id,old=S.scenarioXP,oldTracked=state.gorbinTracked;
+ state.gorbinTracked=true;
+ if(x?.heroKilled&&gorbinFigure(x)?.hp===0)S.scenarioXP=Math.max(0,old-10);
+ try{gorbinBeforeArchive()}finally{if(S.session?.id===sessionId){S.scenarioXP=old;if(oldTracked===undefined)delete state.gorbinTracked;else state.gorbinTracked=oldTracked}}
+};
 
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
