@@ -27,7 +27,7 @@
 .creature-guide{display:grid;gap:9px;line-height:1.5;font-size:13px}.creature-guide p{margin:0;color:var(--text)}.creature-role{font-weight:650;color:var(--gold);font-size:13px}.creature-rules{background:#111a15;border-left:2px solid #82714b;border-radius:5px;padding:10px;display:grid;gap:5px}.creature-rules b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}.creature-source{font-size:12px;text-align:left;color:var(--muted);background:transparent;border-color:var(--line)}.creature-source .ico{width:15px;height:15px}.compact-guide{font-size:14px}.beast-card .actions{margin-top:auto}
 
 .nav{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;gap:5px}.nav button{flex:1 0 auto;min-width:90px;padding:10px 9px;flex-direction:column;gap:4px;font-size:11px;min-height:58px}.nav button .ico{width:22px;height:22px}.party-portrait{width:52px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #8b764a;flex:none}.party-member .row:last-child button{flex:1}.party-member .char-head{flex:1;min-width:0}.party-member h3{overflow-wrap:anywhere}@media(max-width:650px){.nav button{min-width:75px;padding:8px 6px}}
-.arena-banner{border-color:#90ac85}.arena-banner small{display:block;color:var(--muted)}.arena-link{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid #aab890;border-radius:10px;text-decoration:none;color:#f6dfaa;font-weight:700;background:#273934}.arena-link.subtle{background:transparent}.arena-map{margin:0}.arena-map svg{display:block;width:100%;max-height:275px}.arena-map figcaption{color:var(--muted);padding-top:6px}.arena-guide ol{margin:0;padding-left:1.45rem;display:grid;gap:10px}.arena-creature-input{display:flex;align-items:end;gap:8px;flex-wrap:wrap}.arena-creature-input label:first-child{flex:2;min-width:155px}.arena-creature-input label:nth-child(2){max-width:95px}.arena-creature-input button{min-height:42px}.arena-layout .section{margin-top:0}.arena-splash{margin-top:14px}.arena-splash h2,.arena-live h2{margin:0}@media(max-width:650px){.arena-layout{grid-template-columns:1fr}.arena-banner{gap:12px}.arena-banner .row{width:100%;justify-content:flex-start}.arena-creature-input button{flex:1}.arena-banner small{margin-top:4px}}</style><style>
+.arena-banner{border-color:#90ac85}.arena-banner small{display:block;color:var(--muted)}.arena-link{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid #aab890;border-radius:10px;text-decoration:none;color:#f6dfaa;font-weight:700;background:#273934}.arena-link.subtle{background:transparent}.arena-map{margin:0}.arena-map svg{display:block;width:100%;max-height:275px}.arena-map figcaption{color:var(--muted);padding-top:6px}.arena-guide ol{margin:0;padding-left:1.45rem;display:grid;gap:10px}.arena-creature-input{display:flex;align-items:end;gap:8px;flex-wrap:wrap}.arena-creature-input label:first-child{flex:2;min-width:155px}.arena-creature-input label:nth-child(2){max-width:95px}.arena-creature-input button{min-height:42px}.arena-layout .section{margin-top:0}.arena-splash{margin-top:14px}.arena-splash h2,.arena-live h2{margin:0}@media(max-width:650px){.arena-layout{grid-template-columns:1fr}.arena-banner{gap:12px}.arena-banner .row{width:100%;justify-content:flex-start}.arena-creature-input button{flex:1}.arena-banner small{margin-top:4px}}.compact-sheet-card h3,.field-sheet h3{margin:0}.compact-sheet-card .card-portrait{max-height:170px;object-fit:contain}.sheet-lines{padding:0 0 0 1.3rem;margin:0;display:grid;gap:5px}.sheet-reference-entry{border-top:1px solid var(--line,#3c5147);padding:9px 0}.sheet-reference-entry summary small{float:right;color:var(--muted);margin-left:6px}.sheet-reference-entry p{margin:5px 0 0;color:var(--muted)}.sheet-custom summary,.field-sheet summary{cursor:pointer;min-height:28px}.sheet-custom>div{padding-top:12px}.field-sheet .sheet-portrait{max-height:160px;object-fit:contain}.field-sheet .two{align-items:start}@media(max-width:650px){.field-sheet .two{grid-template-columns:1fr}.compact-sheet-card .statgrid{min-width:0}}</style><style>
 /* Command overview and uncropped character portraits */
 .card-portrait,.sheet-portrait{object-fit:contain;object-position:center}
 .command-board{display:grid;gap:20px}
@@ -2262,6 +2262,371 @@ if(ARENA){
  for(let i=navs.length-1;i>=0;i--)if(hide.has(navs[i][0]))navs.splice(i,1);
  tab=S.session?'play':'training';document.title='Training Arena | Rangers of Shadow Deep';
 }
+
+
+/* Creation, reference, and intermission are intentionally distinct. */
+let sheetDraft=null;
+const sheetBaseGet=get;
+get=function(id){return sheetBaseGet(id)||(sheetDraft?.id===id?sheetDraft:undefined)};
+function sheetCanBuild(c){
+ return c?.kind==='ranger'&&!S.session&&!c.dead&&!c.retired&&!c.sheetCreated&&!c.level&&!c.xp&&!c.role&&!String(c.equipment||'').trim()&&!(c.abilities||[]).length&&!(c.spells||[]).length&&!S.history.some(h=>(h.participants||[]).some(p=>(typeof p==='string'?p:p.id)===c.id));
+}
+function sheetReady(c){return !sheetCanBuild(c)}
+function sheetStatus(c){return c.dead?'Deceased':c.retired?'Retired':c.active===false?'Reserve':c.hp<=0?'Downed':c.hp<c.stats[5]?'Wounded':'Ready'}
+function sheetLineList(values,empty){return values.length?'<ul class="sheet-lines">'+values.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>':'<small class="muted">'+esc(empty)+'</small>'}
+function sheetKnown(c){
+ const used=new Set(c.used||[]);
+ return [...(c.abilities||[]).map(n=>[n,'Abilities']),...(c.spells||[]).map(n=>[n,'Spells'])].map(([name,group],i)=>{
+  const v=library[group].find(x=>x.name===name);
+  return '<details class="sheet-reference-entry"><summary>'+esc(name)+' <small>'+esc(used.has(i)?'Used':group==='Spells'?'Spell':'Ability')+'</small></summary><p>'+esc(v?.effect||'See your rules or field notes for this entry.')+'</p></details>';
+ }).join('');
+}
+function sheetPermGear(c){return String(c.equipment||'').split(/[,\n]/).map(x=>x.trim()).filter(Boolean)}
+function sheetPack(c){
+ const issued=sheetPermGear(c),pack=c.inventory||[];
+ const special=typeof avCurrent==='function'&&avCurrent()?.owner===c.id?'<div class="sheet-reference-entry"><b>Aventine’s Sword</b> <small>Magical · +1 Fight while wielded</small></div>':'';
+ return sheetLineList(issued,'No issued equipment recorded.')+special+pack.map(v=>{
+  const def=library[v.group]?.[v.index];
+  return '<details class="sheet-reference-entry"><summary>'+esc(v.name)+' '+(v.charges!=null?'<small>'+v.charges+' uses left</small>':'')+'</summary><p>'+esc(def?.effect||'See the item’s entry in the armoury or your rules.')+'</p></details>';
+ }).join('');
+}
+function sheetField(c){
+ const d=$('editor'),stat=c.stats||[], hpMax=n(stat[5],1), hpNow=n(c.hp),st=sheetStatus(c),notes=[c.injuries,c.notes,c.gathering?.notes].filter(Boolean);
+ const prof=Object.entries(c.skills||{}).filter(([,v])=>n(v)!==0).map(([k,v])=>k+' '+sign(n(v)));
+ const trait=[...(c.gathering?.traits||[]).map(t=>t.name+(t.detail?' ('+t.detail+')':'')),c.gathering?.major,...(c.gathering?.minor||[]),...(c.gohAnimal||[])].filter(Boolean);
+ if(c.kind==='companion'&&companionDescriptions[c.type]?.[1])notes.unshift(companionDescriptions[c.type][1]);
+ const known=sheetKnown(c);
+ d.innerHTML='<div class="stack field-sheet"><div class="row between"><div><div class="eyebrow">Read-only field sheet</div><h2>'+esc(c.name)+'</h2><small>'+esc(c.gathering?.archetype||c.role||c.type||'Ranger')+'</small></div><button type="button" onclick="$(\'editor\').close()">Close</button></div>'+portraitTag(c,'sheet-portrait')+'<div class="row between"><strong>'+hpNow+' / '+hpMax+' Health · '+esc(st)+'</strong><small>'+esc(c.kind==='ranger'?'Level '+c.level+' · '+c.xp+' XP':n(c.pp)+' PP · '+n(c.rp)+' RP')+'</small></div>'+stats(c)+(c.conditions?.length?'<p class="warning">'+esc(c.conditions.join(' · '))+'</p>':'')+'<div class="two"><section class="panel stack"><h3>Equipment</h3>'+sheetPack(c)+'</section><section class="panel stack"><h3>Skill modifiers</h3>'+sheetLineList(prof,'Unlisted skills have +0.')+'</section></div>'+(known?'<section class="panel stack"><h3>Abilities & spells</h3>'+known+'</section>':'')+(trait.length||notes.length?'<details class="panel"><summary>Traits, injuries & notes</summary>'+sheetLineList(trait,'No additional purchased traits.')+notes.map(s=>'<p>'+esc(s)+'</p>').join('')+'</details>':'')+'<small>Use Battle to record actions, damage and effects. Use Between Scenarios for advancement and preparation.</small></div>';
+ if(!d.open)d.showModal();
+}
+const sheetBaseEdit=edit;
+edit=function(id){const c=get(id);if(c)sheetField(c)};
+function sheetOpenBuild(id){
+ const c=get(id);
+ if(!c||S.session||c.kind!=='ranger'||(!sheetCanBuild(c)&&!(c.sheetCreated&&!S.history.length&&!c.dead&&!c.retired))){toast('Starting builds are only available before play.');return}
+ const d=$('editor');if(d.open)d.close();
+ sheetBaseEdit(id);
+ const f=$('charForm');if(!f)return;
+ const eyebrow=f.querySelector('.eyebrow');if(eyebrow)eyebrow.textContent='Character creation · before play';
+ const hide=['eLevel','eXP','eInjuries'];
+ for(const key of hide){const row=$(key)?.closest?.('.field');if(row)row.hidden=true;}
+ const details=document.createElement('details');details.className='panel stack sheet-custom';
+ details.innerHTML='<summary><b>Customize the build</b></summary><div class="stack"></div>';
+ const statsHeading=[...f.children].find(e=>e.tagName==='H3'&&e.textContent.startsWith('Stats'));
+ const saveLine=f.querySelector('button[type="submit"]')?.parentElement;
+ if(statsHeading&&saveLine){
+  f.insertBefore(details,statsHeading);
+  const into=details.lastElementChild;
+  while(details.nextElementSibling&&details.nextElementSibling!==saveLine)into.append(details.nextElementSibling);
+  const title=$('gohSheet');if(title){title.open=false;into.prepend(title);}
+ }
+ const p=f.querySelector('.sheet-preset');
+ if(p)p.insertAdjacentHTML('beforeend','<div class="note" id="sheetBuildPreview">Pick an archetype and apply it for a ready-to-play build. You can open Customize the build at any time before you save.</div>');
+ const del=saveLine?.querySelector('.danger');if(del)del.hidden=true;
+ const saveBtn=saveLine?.querySelector('button[type=submit]');if(saveBtn)saveBtn.textContent='Save ranger';
+ const prior=f.onsubmit;
+ f.onsubmit=e=>{
+  e.preventDefault();
+  const old=clone(c),isNew=sheetDraft?.id===c.id;
+  if(isNew&&$('eActive').checked&&partyRangers().length>=4){toast('Your active roster is full. Save this ranger in reserve.');return}
+  c.sheetCreated=true;
+  if(isNew)S.rangers.push(c);
+  prior(e);
+  if(d.open){
+   if(isNew)S.rangers=S.rangers.filter(r=>r.id!==c.id);
+   for(const k of Object.keys(c))delete c[k];Object.assign(c,old);
+   return;
+  }
+  if(isNew)sheetDraft=null;
+  toast('Ranger saved. Open Sheet for the read-only view.');
+ };
+}
+const sheetPreviousApply=applyRangerPreset;
+applyRangerPreset=function(){
+ sheetPreviousApply();
+ const p=$('sheetBuildPreview'),role=$('eRole')?.value,hp=$('eHP')?.value,gear=$('eEquipment')?.value;
+ if(p&&role&&gear)p.innerHTML='<b>'+esc(role)+' · '+esc(hp)+' Health</b><br><small>'+esc(gear)+'</small>';
+ if($('gohSheet')?.closest?.('.sheet-custom'))$('gohSheet').open=false;
+};
+addRanger=function(){
+ if(S.session)return;
+ sheetDraft=ranger(S.rangers.length+1);
+ sheetDraft.active=partyRangers().length<4;
+ sheetOpenBuild(sheetDraft.id);
+};
+const sheetOldCard=card;
+card=function(c,battle=false){
+ if(battle)return sheetOldCard(c,battle).replace('>Edit</button>','>Sheet</button>').replace(/<button[^>]*onclick="(?:levelup|pp)\([^>]*>[^<]*<\/button>/g,'');
+ const draft=sheetCanBuild(c), ready=c.kind==='ranger'&&c.sheetCreated&&!S.history.length&&!S.session&&!c.dead&&!c.retired;
+ const isR=c.kind==='ranger',label=c.gathering?.archetype||c.role||c.type||'Not built';
+ const button=draft?'<button class="primary" onclick="sheetOpenBuild(\''+c.id+'\')">Build ranger</button>':'<button class="primary" onclick="edit(\''+c.id+'\')">View sheet</button>';
+ return '<article class="panel stack compact-sheet-card">'+portraitTag(c)+'<div class="row between"><div><div class="eyebrow">'+(isR?'Ranger':'Companion')+' · '+esc(draft?'Not built':sheetStatus(c))+'</div><h3>'+esc(c.name)+'</h3><small>'+esc(label)+'</small></div>'+button+'</div>'+(draft?'<small>Choose a prebuilt ranger or customize one before you start.</small>':'<div class="row between"><b>'+n(c.hp)+' / '+n(c.stats[5])+' HP</b><span>'+esc(isR?'Level '+c.level+' · '+c.xp+' XP':n(c.pp)+' PP · '+n(c.rp)+' RP')+'</span></div>'+stats(c))+(ready?'<button type="button" onclick="sheetOpenBuild(\''+c.id+'\')">Edit starting build</button>':'')+'</article>';
+};
+commandOpenSheet=function(i){const c=all()[i];if(c)edit(c.id)};
+function sheetReviewCompOptions(c,p){
+ if(p===20)return [['Fight','Fight'],['Shoot','Shoot']];
+ if([30,70].includes(p))return compSkills(c.type).filter(k=>n(c.skills[k])<10).map(x=>[x,x+' ('+sign(n(c.skills[x]))+' → '+sign(Math.min(10,n(c.skills[x])+4))+')']);
+ if([50,100].includes(p)){
+  const pretend={...c,gathering:{...c.gathering,archetype:Object.hasOwn(heroBuilds,c.type)?c.type:''}};
+  return heroAdvanceOptions(pretend);
+ }
+ return [];
+}
+function sheetReviewOpenComp(id){
+ const c=get(id),mile=c&&compMilestone(c);
+ if(S.session||!c||c.dead||c.retired||!mile)return;
+ const [p,desc]=mile,d=$('editor');
+ const opts=sheetReviewCompOptions(c,p);
+ const legacy=!Array.isArray(c.ppClaimed)&&n(c.pp)>=10;
+ d.innerHTML='<div class="stack"><div class="eyebrow">Between scenarios · companion</div><h2>'+esc(c.name)+'</h2>'+(legacy?'<p>This older sheet does not say which previous rewards were applied. Reconcile it before claiming any reward.</p><button onclick="sheetReconcile(\''+id+'\',true)">Earlier rewards already applied</button><button onclick="sheetReconcile(\''+id+'\',false)">Claim earlier rewards from the start</button>':'<p>'+p+' PP milestone · '+esc(desc)+'</p>'+(opts.length?'<label for="sheetCompReward">Reward<select id="sheetCompReward"><option value="">Choose</option>'+opts.map(([v,l])=>'<option value="'+esc(v)+'">'+esc(l)+'</option>').join('')+'</select></label>':'')+'<button class="primary" onclick="sheetClaimComp(\''+id+'\','+p+')">Apply reward</button>')+'<button type="button" onclick="$(\'editor\').close()">Cancel</button></div>';
+ if(!d.open)d.showModal();
+}
+function sheetReconcile(id,claimed){
+ const c=get(id);if(!c||S.session||Array.isArray(c.ppClaimed))return;
+ c.ppClaimed=claimed?ppRewards.filter(([p])=>p<=n(c.pp)).map(([p])=>p):[];
+ $('editor').close();commit();toast('Companion reward history saved.');
+}
+function sheetClaimComp(id,p){
+ const c=get(id),pick=$('sheetCompReward')?.value;
+ if(S.session||!c||c.dead||c.retired||!Array.isArray(c.ppClaimed)||compMilestone(c)?.[0]!==p)return;
+ if([20,30,50,70,100].includes(p)&&!sheetReviewCompOptions(c,p).some(([key])=>key===pick)){toast('Choose an eligible reward first.');return}
+ if(p===10||p===60){c.stats[5]++;c.hp=Math.min(c.stats[5],c.hp+1)}
+ else if(p===20)c.stats[pick==='Fight'?1:2]++;
+ else if(p===30||p===70)c.skills[pick]=Math.min(10,n(c.skills[pick])+4);
+ else if(p===40||p===80)c.stats[4]+=2;
+ else if(p===50||p===100){
+  if(pick.startsWith('A:')){const i=c.abilities.length;c.used=(c.used||[]).map(j=>j>=i?j+1:j);c.abilities.push(pick.slice(2))}
+  else {c.spells.push(pick.slice(2));if(c.type==='Conjuror')(c.earnedSpells||=[]).push(pick.slice(2))}
+ }
+ c.ppClaimed.push(p);$('editor').close();commit();toast('Companion reward applied.');
+}
+function sheetCompNeedsPrep(c){
+ return ['Chthonian Mage','Scrollmaster of Melnoth','Conjuror','Nesra','Gorbin'].includes(c.type)&&!c.go2Temp;
+}
+function sheetPrepComp(id){
+ const c=get(id),d=$('editor');if(!c||S.session||c.dead||c.retired||!sheetCompNeedsPrep(c))return;
+ const special=['Nesra','Gorbin'].includes(c.type);
+ const limit=c.type==='Conjuror'?(c.conjExtra?3:2):3;
+ const std=library.Spells.filter(v=>!v.gohPage&&!v.locked).map(x=>x.name);
+ const choices=[...std,...(c.type==='Chthonian Mage'?heroRareS.slice(0,3):c.type==='Scrollmaster of Melnoth'?heroRareS.slice(3):[])].sort();
+ const prev=(c.type==='Conjuror'?c.conjSpells:c.goh2Prepared)||c.spells?.slice(0,limit)||[];
+ const form=special?'<label class="check"><input id="sheetPrepProof" type="checkbox" '+(c.heroRecruitCondition?'checked':'')+'> '+(c.type==='Nesra'?'Nesra survived Ghost Stone and passed the Leadership TN18 check for this mission.':'Gorbin survived Prison Break.')+'</label>':Array.from({length:limit},(_,i)=>'<label for="sheetPrepSlot'+i+'">Spell '+(i+1)+'<select id="sheetPrepSlot'+i+'">'+opts(['',...choices],prev[i]||'')+'</select></label>').join('');
+ d.innerHTML='<form class="stack" id="sheetPrepForm"><div class="eyebrow">Before the next scenario</div><h2>'+esc(c.name)+'</h2>'+form+'<button class="primary" type="submit">Save preparation</button><button type="button" onclick="$(\'editor\').close()">Cancel</button></form>';
+ $('sheetPrepForm').onsubmit=e=>{
+  e.preventDefault();if(S.session)return;
+  if(special)c.heroRecruitCondition=$('sheetPrepProof').checked;
+  else {
+   const next=Array.from({length:limit},(_,i)=>$('sheetPrepSlot'+i).value);
+   if(next.some(v=>!choices.includes(v))||(c.type==='Chthonian Mage'&&heroRestrictedSpells.some(v=>next.filter(n=>n===v).length>1))){toast('Select legal spells for each slot.');return}
+   const old=(c.type==='Conjuror'?c.conjSpells:c.goh2Prepared)||c.spells.slice(0,limit);
+   const extras=c.type==='Conjuror'?(c.earnedSpells||c.spells.slice(old.length)):c.spells.slice(old.length);
+   if(c.type==='Conjuror')c.conjSpells=next;else c.goh2Prepared=next;
+   c.spells=[...next,...extras];c.used=[];
+  }
+  d.close();commit();toast('Preparation saved.');
+ };
+ if(!d.open)d.showModal();
+}
+function sheetReviewPage(){
+ const last=S.history?.[0],arena=ARENA;
+ if(S.session)return '<section class="panel stack section"><div class="eyebrow">Between Scenarios</div><h2>'+ (G()?.post?'Finish the after-action first':'Finish the current scenario first')+'</h2><p>After you resolve survival, treasure and recovery, record the result. Level-ups and companion progression appear here once XP and PP are awarded.</p><button class="primary" onclick="show(\'play\')">Return to '+(G()?.post?'after-action':'battle')+'</button></section>';
+ const viable=all().filter(c=>!c.dead&&!c.retired&&!c.go2Temp);
+ const rs=viable.filter(c=>c.kind==='ranger'&&c.level<100&&n(c.xp)>=cost(c.level+1));
+ const cs=viable.filter(c=>c.kind==='companion'&&compMilestone(c));
+ const prep=viable.filter(c=>c.kind==='companion'&&sheetCompNeedsPrep(c));
+ const heading=last?'After '+last.scenario:'Before your first scenario';
+ const rows=(items,render,none)=>items.length?items.map(render).join(''):'<small class="muted">'+none+'</small>';
+ return '<div class="stack"><section class="panel stack section"><div class="eyebrow">Between Scenarios</div><h2>'+esc(heading)+'</h2><p>'+(last?'Results recorded. Review any earned upgrades, then prepare the next expedition.':'There are no recorded results yet. Build your rangers and recruit your starting party before play.')+'</p><div class="row"><button class="primary" onclick="show(\''+(arena?'training':'campaign')+'\')">'+(arena?'Arena setup':'Open mission briefing')+'</button><button onclick="show(\'party\')">Current Party</button></div></section><div class="two"><section class="panel stack"><h3>Ranger advancement</h3>'+rows(rs,c=>'<div class="listline"><span>'+esc(c.name)+'<br><small>'+c.xp+' XP · ready for level '+(c.level+1)+'</small></span><button onclick="levelup(\''+c.id+'\')">Level up</button></div>','No ranger level-ups ready.')+'</section><section class="panel stack"><h3>Companion progression</h3>'+rows(cs,c=>'<div class="listline"><span>'+esc(c.name)+'<br><small>'+n(c.pp)+' PP · '+esc(compMilestone(c)[1])+'</small></span><button onclick="sheetReviewOpenComp(\''+c.id+'\')">Choose reward</button></div>','No companion rewards ready.')+'</section></div>'+(prep.length?'<section class="panel stack"><h3>Prepare companions</h3>'+rows(prep,c=>'<div class="listline"><span>'+esc(c.name)+'</span><button onclick="sheetPrepComp(\''+c.id+'\')">Prepare</button></div>','')+'</section>':'')+'<section class="panel stack"><h3>Equipment & treasure</h3><p>Inspect found weapons, record unlocked Hoard effects or review special items before the next scenario.</p><div class="row"><button onclick="show(\'armoury\')">Open Armoury</button><button onclick="show(\'recruit\')">Recruit</button></div></section></div>';
+}
+const sheetPriorPost=postPanel;
+postPanel=function(){
+ const h=sheetPriorPost();
+ return h.replace('<h2>Close the expedition</h2>','<h2>Close the expedition</h2><p>Resolve survival, treasure and recovery here. Recording the result opens Between Scenarios, where you can spend the new XP and claim companion rewards.</p>');
+};
+const sheetPriorArchive=guideArchive;
+guideArchive=function(){
+ const id=S.session?.id;
+ sheetPriorArchive();
+ if(id&&!S.session&&S.history?.[0]?.sessionId===id)show('review');
+};
+const sheetPriorRender=render;
+render=function(){
+ sheetPriorRender();
+ if(tab==='review')$('main').innerHTML=(ARENA?arenaBanner():'')+sheetReviewPage();
+ if(tab==='armoury')$('main').innerHTML=(ARENA?arenaBanner():'')+armouryPage();
+};
+navs.splice(navs.findIndex(x=>x[0]==='play')+1,0,['review','Between Scenarios','crest']);
+navs.splice(navs.findIndex(x=>x[0]==='library')+1,0,['armoury','Armoury','shield']);
+
+const sheetBeforeHandoff=go2Camp;
+go2Camp=function(){
+ return sheetBeforeHandoff().replace(/<button onclick="(?:levelup|edit)\([^>]+>(?:Level up|Review milestone)<\/button>/g,'<button onclick="show(\'review\')">Between Scenarios</button>');
+};
+
+
+/* The book's unique recovered sword is not a random Weapon Hoard draw. */
+function avCurrent(){const a=S.avSword;return a?.recovered&&!a.returned?a:null}
+function avBearer(){
+ const a=avCurrent(),s=S.session,c=a?.owner&&get(a.owner);
+ return s?.participants.includes(c?.id)&&!c.dead&&!c.retired?c:null;
+}
+function avDue(){const c=avBearer(),a=avCurrent();return c&&n(a.carried?.[c.id])+1>=3?c:null}
+function avRecordDiscovery(id){
+ if(!S.session||S.scenario!=='The Deserted Village'||!S.session.clues.some(c=>c.result==='Missing ranger found')||S.session.avDiscovery||S.avSword?.recovered)return;
+ const c=get(id);if(!c||c.hp<=0||animals.includes(c.type)||!S.session.participants.includes(id))return;
+ const raw=$('avDiscoveryDie')?.value||'',die=raw===''?rnd(20):Number(raw);
+ if(!Number.isInteger(die)||die<1||die>20){toast('Enter a physical d20 from 1 to 20.');return}
+ const mod=n(c.skills?.Armoury),passed=die===20||die!==1&&die+mod>=6;
+ S.session.avDiscovery={id,die,mod,passed};
+ if(passed){
+  S.avSword={recovered:true,owner:id,carried:{},log:[],extended:false,returned:false};
+  S.scenarioXP+=5;
+ }
+ guideLog(c.name+' · Armoury TN6: '+die+' '+sign(mod)+' = '+(die+mod)+' · '+(passed?'sword recovered, +5 XP':'did not identify the sword'));
+ const d=$('editor');
+ d.innerHTML='<div class="stack"><h2>'+ (passed?'Aventine’s Sword recovered':'Identification failed')+'</h2><p>'+esc(c.name)+': '+die+' '+sign(mod)+' = '+(die+mod)+' against TN6.</p>'+(passed?'<p>The sword is magical and grants +1 Fight while wielded. It appears in Armoury and on the bearer’s sheet.</p>':'')+'<button class="primary" onclick="$(\'editor\').close()">Return to battle</button></div>';
+ commit();
+}
+const avBeforeClue=clueDialog;
+clueDialog=function(){
+ avBeforeClue();
+ const f=$('clueForm');if(!f||S.scenario!=='The Deserted Village')return;
+ const old=f.onsubmit;
+ f.onsubmit=e=>{
+  const id=$('clueHero').value,clueCount=S.session.clues.length;
+  old(e);
+  const last=S.session.clues.at(-1);
+  if(S.session.clues.length!==clueCount+1||last?.result!=='Missing ranger found')return;
+  last.finderId=id;commit();
+  if(!S.session.avDiscovery&&!S.avSword?.recovered&&!animals.includes(get(id)?.type)){
+   const d=$('editor');
+   d.innerHTML='<div class="stack"><div class="eyebrow">Discovery · optional identification roll</div><h2>Missing ranger found</h2><p>Make an Armoury check (TN6) with the investigating figure to try to identify the sword.</p><label for="avDiscoveryDie">Physical d20 (blank = roll here)</label><input id="avDiscoveryDie" type="number" min="1" max="20"><button class="primary" onclick="avRecordDiscovery(\''+id+'\')">Resolve Armoury check</button><button onclick="$(\'editor\').close()">Resolve later</button></div>';
+  }
+ };
+};
+function avRollPanel(){
+ const c=avDue();if(!c)return '';
+ const checked=S.session.avCurse;
+ return '<div class="note stack"><h3>Aventine’s Sword · Will TN15</h3><p>'+esc(c.name)+' has carried the sword in '+(n(avCurrent().carried?.[c.id])+1)+' scenarios, including this one.</p>'+(checked?'<small>Will check recorded: '+checked.die+' '+sign(checked.mod)+' = '+(checked.die+checked.mod)+'. '+(checked.pass?'Passed.':'Failed; the curse is applied when you record the results.')+'</small>':'<label for="avCurseDie">Physical d20 (blank = roll here)</label><input id="avCurseDie" type="number" min="1" max="20"><button onclick="avRollCurse()">Resolve curse roll</button>')+'</div>';
+}
+function avRollCurse(){
+ const c=avDue();if(!c||!G()?.post||S.session.avCurse)return;
+ const field=$('avCurseDie'),raw=field?.value||'',die=raw===''?rnd(20):Number(raw);
+ if(!Number.isInteger(die)||die<1||die>20){toast('Enter a physical d20 from 1 to 20.');return}
+ const mod=n(c.stats[4]),pass=die===20||die!==1&&die+mod>=15;
+ S.session.avCurse={id:c.id,die,mod,pass};
+ guideLog(c.name+' · Aventine’s Sword Will TN15: '+die+' '+sign(mod)+' · '+(pass?'passed':'failed'));commit();
+}
+function avMissingFinder(){
+ const clue=S.session?.clues?.find(x=>x.result==='Missing ranger found');
+ return clue&&(get(clue.finderId)||all().find(c=>c.name===clue.hero))||null;
+}
+function avOpenDiscovery(){
+ const c=avMissingFinder();if(!c||S.session.avDiscovery||S.avSword?.recovered)return;
+ const d=$('editor');
+ d.innerHTML='<div class="stack"><h2>Identify the recovered sword</h2><p>Armoury TN6 for '+esc(c.name)+'.</p><label for="avDiscoveryDie">Physical d20 (blank = roll here)</label><input id="avDiscoveryDie" type="number" min="1" max="20"><button class="primary" onclick="avRecordDiscovery(\''+c.id+'\')">Resolve Armoury check</button><button onclick="$(\'editor\').close()">Cancel</button></div>';
+ if(!d.open)d.showModal();
+}
+const avReviewPost=postPanel;
+postPanel=function(){
+ let h=avReviewPost();
+ const c=avMissingFinder(),disc=c&&!S.session.avDiscovery&&!S.avSword?.recovered&&!animals.includes(c.type)&&c.hp>0;
+ const missing=disc?'<div class="note"><b>Unresolved discovery</b> <button onclick="avOpenDiscovery()">Identify recovered sword</button></div>':'';
+ return h.replace('<h3>3 · Recovery & archive</h3>',missing+avRollPanel()+'<h3>3 · Recovery & archive</h3>');
+};
+const avArchiveBase=guideArchive;
+guideArchive=function(){
+ const s=S.session,a=avCurrent(),c=avBearer(),due=avDue();
+ if(due&&!s.avCurse){toast('Resolve the sword bearer’s Will TN15 check first.');return}
+ const endOfLoan=!!a&&S.mission==='The Missing'&&S.scenario==='The Infected Trees'&&!a.extended;
+ const id=s?.id,name=S.scenario;
+ avArchiveBase();
+ if(!id||S.session||S.history?.[0]?.sessionId!==id||!a)return;
+ let detail='';
+ if(c){
+  a.carried||={};a.carried[c.id]=n(a.carried[c.id])+1;
+  const roll=s.avCurse;
+  detail=c.name+' carried the sword · scenario '+a.carried[c.id]+'.';
+  if(roll&&!roll.pass&&!c.dead&&!c.retired){
+   if(c.kind==='ranger'&&c.xp>=25){c.xp-=25;detail+=' Curse: −25 XP.';}
+   else{
+    c.stats[5]=Math.max(1,c.stats[5]-1);c.hp=Math.min(c.hp,c.stats[5]);
+    c.injuries=[c.injuries,'Aventine’s Sword: permanent −1 Health'].filter(Boolean).join('; ');
+    detail+=' Curse: permanent −1 Health.';
+   }
+  }else if(roll?.pass)detail+=' Will check passed.';
+  if(c.dead||c.retired)a.owner='';
+  (a.log||=[]).unshift({id,figure:c.name,scenario:name,text:detail});
+  const record=S.history[0];record.avSword={...roll,detail};record.finalHeroes=record.finalHeroes?.map(f=>f.id===c.id?clone(c):f);
+ }
+ if(endOfLoan){a.returned=true;a.owner='';(a.log||=[]).unshift({id,scenario:name,text:'Returned to the King’s armoury at the end of The Missing.'});}
+ commit();if(detail)toast(detail);
+};
+function avSaveSettings(){
+ const a=avCurrent();
+ if(S.session||!a)return;
+ const id=$('avBearer')?.value||'';
+ const c=get(id);
+ if(id&&(!c||c.dead||c.retired||animals.includes(c.type)))return;
+ a.owner=id;a.extended=!!$('avExtended')?.checked;
+ commit();toast('Sword assignment saved.');
+}
+function avReturn(){
+ const a=avCurrent();if(!a||S.session)return;
+ a.returned=true;a.owner='';(a.log||=[]).unshift({text:'Returned to the King’s armoury.'});
+ commit();toast('Aventine’s Sword returned.');
+}
+function avOpen(){
+ const d=$('editor'),a=S.avSword,active=avCurrent(),canEdit=!!active&&!S.session;
+ const list=(a?.log||[]).map(h=>'<li>'+esc(h.text)+'</li>').join('');
+ const folks=all().filter(c=>!c.dead&&!c.retired&&!animals.includes(c.type));
+ const options='<option value="">In stash · not carried</option>'+folks.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===a?.owner?'selected':'')+'>'+esc(c.name)+(a?.carried?.[c.id]?' ('+a.carried[c.id]+' carried)':'')+'</option>').join('');
+ const settings='<label for="avBearer">Bearer<select id="avBearer">'+options+'</select></label><label class="check"><input type="checkbox" id="avExtended" '+(a?.extended?'checked':'')+'> Keep after The Missing and play with the curse instead of the standard return</label><div class="row"><button class="primary" onclick="avSaveSettings()">Save assignment</button><button onclick="avReturn()">Return to the King’s armoury</button></div>';
+ d.innerHTML='<div class="stack"><div class="eyebrow">A Gathering of Heroes · unique item</div><h2>The Curse of Aventine’s Sword</h2><p>'+(!a?.recovered?'Not recovered yet. It will appear here after a successful identification in The Missing.':a.returned?'Returned to the King’s armoury.':get(a.owner)?'Bearer: '+esc(get(a.owner).name)+'.':'In the company stash.')+'</p><details class="panel"><summary>Read curse rules</summary><p>Magic hand weapon: +1 Fight while wielded. The first two scenarios with each bearer are safe. At the end of their third and later scenarios carrying it, roll Will TN15. On failure, lose 25 XP if available; otherwise take a permanent −1 Health. Changing bearers never resets a figure’s count.</p><button onclick="openGohReference(171)">Open supplement p. 171</button></details>'+(canEdit?settings:'')+(list?'<h3>Bearer history</h3><ul class="sheet-lines">'+list+'</ul>':'')+'<button onclick="$(\'editor\').close()">Close</button></div>';
+ if(!d.open)d.showModal();
+}
+function armouryPage(){
+ const found=Object.keys(goh2HoardFound()).length, av=avCurrent();
+ return '<section class="panel stack section"><div class="eyebrow">A Gathering of Heroes</div><h2>Armoury</h2><p>Find unique weapons and review what you’re carrying. Recovered gear appears on read-only field sheets.</p></section><div class="two"><section class="panel stack"><h3>Weapon Hoard</h3><p>Optional 52-card deck for a Weapons and Armour treasure result. Draw through after-action, or record an earned physical card here. Unlock properties with the printed checks between eligible scenarios.</p><small>'+found+' of 52 cards recorded.</small><div class="row"><button class="primary" onclick="goh2OpenHoard()">Open Weapon Hoard</button><button onclick="openGohReference(154)">Hoard rules</button></div></section><section class="panel stack"><h3>The Curse of Aventine’s Sword</h3><p>'+(av?'Recovered · '+esc(get(av.owner)?.name||'Company stash'):S.avSword?.returned?'Returned to the King’s armoury.':'Not yet recovered. Tracked separately from the Hoard.')+'</p><div class="row"><button class="primary" onclick="avOpen()">Open sword record</button></div></section></div>';
+}
+
+/* Draws belong to actual treasure; Armoury is the ledger and physical-roll entry point. */
+goh2DrawHoard=function(){toast('Use the Weapon Hoard option after an earned Weapons and Armour treasure result.')};
+const sheetHoardOpen=goh2OpenHoard;
+goh2OpenHoard=function(key=''){
+ sheetHoardOpen(key);
+ const d=$('editor');
+ const btn=d.querySelector('[onclick="goh2DrawHoard()"]');
+ if(btn){const tip=document.createElement('small');tip.textContent='Digital draws: choose “Use Weapon Hoard instead” on an earned Weapons and Armour result in after-action.';btn.replaceWith(tip);}
+ const rec=d.querySelector('[onclick="goh2RecordHoard()"]');
+ if(rec){
+  if(S.session&&!G()?.post)rec.disabled=true;
+  rec.insertAdjacentHTML('beforebegin','<label class="check"><input type="checkbox" id="sheetHoardEarned"> This physical draw came from an earned Weapons and Armour result.</label>');
+ }
+};
+const sheetHoardRecord=goh2RecordHoard;
+goh2RecordHoard=function(){
+ if((S.session&&!G()?.post)||!$('sheetHoardEarned')?.checked){toast('Record a physical card only after you earn the treasure.');return}
+ return sheetHoardRecord();
+};
+const avReviewCombat=combatTool;
+combatTool=function(){
+ avReviewCombat();
+ const form=$('combatForm'),c=avBearer();
+ if(!form||!c)return;
+ form.querySelector('#cMagicA')?.closest('.row')?.insertAdjacentHTML('afterend','<label class="check"><input type="checkbox" id="avWield"> '+esc(c.name)+' is wielding Aventine’s Sword (+1 Fight, magic)</label>');
+ const prior=form.onsubmit;
+ form.onsubmit=e=>{
+  if(!$('avWield')?.checked)return prior(e);
+  const sides=[['ca','cma','cMagicA'],['cb','cmb','cMagicB']];
+  const corrections=[];
+  for(const [pick,mod,magic] of sides){
+   if($(pick).value!==c.id||pick==='ca'&&$('ct').value==='shoot')continue;
+   const v=$(mod),m=$(magic);corrections.push([v,m,v.value,m.checked]);v.value=n(v.value)+1;m.checked=true;
+  }
+  try{return prior(e)}finally{for(const [v,m,a,b] of corrections){v.value=a;m.checked=b}}
+ };
+};
 
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
