@@ -2628,5 +2628,85 @@ combatTool=function(){
  };
 };
 
+
+/* Burning Light recovery (Standard Edition pp. 92–93); projected first, committed once. */
+function conventRecoveryActive(){return S.mission==='Burning Light'&&!S.customScenario&&!!S.session&&!!G()?.post}
+function conventRecoveryReady(){
+ const s=S.session,g=G();return !!s&&![...new Set([...s.downed,...s.participants.filter(id=>get(id)?.hp<=0)])].some(id=>!s.survival[id]&&!g.survivalApplied[id]);
+}
+function conventRecoveryData(){
+ return S.session.conventRecovery||={aid:[],heals:[]};
+}
+function conventHeroes(){
+ return S.session.participants.map(get).filter(c=>c&&!c.dead&&!c.retired&&c.active!==false);
+}
+function conventBaseHealth(c){return Math.min(c.stats[5],Math.max(c.hp+3,Math.ceil(c.stats[5]/2)))}
+function conventProjected(c,data=conventRecoveryData()){
+ return Math.min(c.stats[5],conventBaseHealth(c)+data.aid.filter(x=>x.to===c.id&&x.pass).length*2+data.heals.filter(x=>x.to===c.id).reduce((a,x)=>a+x.amount,0));
+}
+function conventAidPairs(){
+ const people=conventHeroes(),x=conventRecoveryData(), used=new Set(x.aid.map(t=>t.from)),requests=new Set(x.aid.map(t=>t.to)),helped=new Set(x.aid.filter(t=>t.pass).map(t=>t.to));
+ if(x.heals.length)return [];
+ return people.flatMap(a=>used.has(a.id)||requests.has(a.id)?[]:people.filter(b=>a.id!==b.id&&!used.has(b.id)&&!helped.has(b.id)&&conventProjected(b,x)<b.stats[5]).map(b=>({from:a.id,to:b.id,label:a.name+' → '+b.name+' · Survival '+sign(n(a.skills?.Survival))})));
+}
+function conventUnusedHeals(){
+ const people=conventHeroes(),x=conventRecoveryData();
+ return people.flatMap(c=>(c.spells||[]).flatMap((name,i)=>{
+  const at=(c.abilities||[]).length+i;
+  if(name!=='Heal'||c.used?.includes(at)||x.heals.some(h=>h.from===c.id&&h.slot===i))return [];
+  const count=String(c.equipment||'').split(/[,\n]/).some(v=>v.trim().toLowerCase()==='holy icon')?6:5;
+  return [{from:c.id,slot:i,amount:count,label:c.name+' · Heal #'+(i+1)+' (+'+count+')'}];
+ }));
+}
+function conventAid(){
+ if(!conventRecoveryActive()||!conventRecoveryReady())return;
+ const pick=$('conventAidPick')?.value;
+ const pair=conventAidPairs().find(x=>x.from+'|'+x.to===pick);
+ if(!pair){toast('Choose a legal helper and recipient.');return}
+ const c=get(pair.from),t=get(pair.to),raw=$('conventAidDie')?.value||'',die=raw===''?rnd(20):Number(raw);
+ if(!Number.isInteger(die)||die<1||die>20){toast('Enter a physical d20 from 1 to 20.');return}
+ const mod=n(c.skills?.Survival),pass=die===20||die!==1&&die+mod>=12;
+ conventRecoveryData().aid.push({...pair,die,mod,pass});
+ guideLog(pair.label+' · TN12: '+die+' '+sign(mod)+' = '+(die+mod)+' · '+(pass?'recover 2 Health':'failed'));commit();
+}
+function conventHeal(){
+ if(!conventRecoveryActive()||!conventRecoveryReady())return;
+ const pick=$('conventHealPick')?.value,h=conventUnusedHeals().find(x=>x.from+'|'+x.slot===pick),c=get($('conventHealTarget')?.value);
+ if(!h||!conventHeroes().includes(c)||conventProjected(c)>=c.stats[5]){toast('Choose an unused Heal spell and a wounded target.');return}
+ conventRecoveryData().heals.push({...h,to:c.id});
+ guideLog(h.label+' → '+c.name);commit();
+}
+function conventRecoveryHTML(){
+ if(!conventRecoveryActive())return '';
+ const open='<section class="panel stack convent-recovery"><h3>Burning Light recovery</h3><p>Regain 3 Health or recover to half your maximum, whichever is higher. Optional help and unused Heal spells are applied before next-scenario penalties.</p>';
+ if(!conventRecoveryReady())return open+'<small>Resolve every downed figure’s survival first.</small></section>';
+ const data=conventRecoveryData(),p=conventHeroes(),pairs=conventAidPairs(),heals=conventUnusedHeals(),targets=p.filter(c=>conventProjected(c)<c.stats[5]);
+ const row=p.map(c=>'<div class="listline"><span>'+esc(c.name)+'</span><b>'+conventProjected(c)+' / '+c.stats[5]+' Health after recovery</b></div>').join('');
+ const aid=pairs.length?'<label for="conventAidPick">First aid · another hero makes Survival TN12</label><select id="conventAidPick"><option value="">Choose helper and recipient</option>'+pairs.map(x=>'<option value="'+x.from+'|'+x.to+'">'+esc(x.label)+'</option>').join('')+'</select><label for="conventAidDie">Physical d20 (blank = roll here)</label><input type="number" id="conventAidDie" min="1" max="20"><button onclick="conventAid()">Record Survival check</button>':'<small>'+(data.heals.length?'First aid is closed once unused spells are cast.':'No eligible first-aid pair remains.')+'</small>';
+ const spells=heals.length&&targets.length?'<label for="conventHealPick">Unused Heal spell</label><select id="conventHealPick"><option value="">Choose a caster and spell slot</option>'+heals.map(x=>'<option value="'+x.from+'|'+x.slot+'">'+esc(x.label)+'</option>').join('')+'</select><label for="conventHealTarget">Heal target</label><select id="conventHealTarget"><option value="">Choose a wounded hero</option>'+targets.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select><button onclick="conventHeal()">Cast Heal after first aid</button>':'';
+ return open+row+aid+spells+'<small>After-action healing is optional. Health totals are saved when you record results.</small></section>';
+}
+const conventPriorPost=postPanel;
+postPanel=function(){
+ const base=conventPriorPost();
+ if(!conventRecoveryActive())return base;
+ return base.replace(/<div class="field"><label>Recovery mode<\/label><select[^>]*onchange="G\(\)\.recovery=this\.value;commit\(\)"[^>]*>[\s\S]*?<\/select><\/div>/,conventRecoveryHTML());
+};
+const conventPriorArchive=guideArchive;
+guideArchive=function(){
+ if(!conventRecoveryActive())return conventPriorArchive();
+ const id=S.session.id,data=clone(conventRecoveryData());
+ G().recovery='burning';
+ conventPriorArchive();
+ if(S.session||S.history[0]?.sessionId!==id)return;
+ const r=S.history[0],cured=new Set();
+ for(const x of [...data.aid.filter(x=>x.pass).map(x=>({...x,amount:2})),...data.heals]){
+  const c=get(x.to);if(!c||c.dead||c.retired)continue;
+  c.hp=Math.min(c.stats[5],c.hp+x.amount);cured.add(c.id);
+ }
+ r.conventRecovery=data;r.finalHeroes=r.finalHeroes?.map(c=>cured.has(c.id)?clone(get(c.id)):c);
+ commit();
+};
+
 $('brandMark').innerHTML=icon('crest');render();save();
 </script></body></html>
