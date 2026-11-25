@@ -532,13 +532,13 @@ function guideSecure(){let g=G();g.secured++;guideLog('Treasure token secured');
 function guidePanel(){guideSync();let g=G(),c=guideFigure(g.actor),a=c&&g.actions[c.id],queue=guideEligible();if(g.post)return postPanel();return `<section class="panel stack guided-console"><div class="row between"><div><div class="eyebrow">✦ Guided battle command</div><h2>Turn ${S.turn} · ${phases[S.phase]} phase</h2></div><button onclick="guidePostStart()">Finish scenario →</button></div><div class="guided-steps">${phases.map((x,i)=>`<span class="${S.phase===i?'current':''}">${i+1} · ${x}</span>`).join('')}</div>${(g.pending||[]).map(p=>`<div class="note warning">${esc(get(p.hero)?.name)}: disease check TN${p.tn} <button onclick="guideDiseaseRoll('${p.id}')">Resolve</button></div>`).join('')}${S.phase===3?`<div class="panel stack"><h3>Event phase</h3><p>${guideEventExpected()?(g.events[S.turn]?'Event drawn this turn. Resolve the effect below.':'Draw the scenario event for this turn.'):'No normal event draw scheduled. Check scenario-specific rules.'}</p><div class="row"><button class="primary" onclick="guideEventDraw()" ${!guideEventExpected()||g.events[S.turn]||!S.deck.length?'disabled':''}>Draw event</button>${S.drawn.length&&!missionData[S.scenario]?.room?`<button onclick="resolveEvent(true)" ${fieldState().resolved.includes(S.drawn.length)?'disabled':''}>Resolve / spawn supported enemies</button>`:''}</div>${S.drawn.length&&!missionData[S.scenario]?.room?`<p>${esc(currentEvent(S.drawn[0])||'See scenario console')}</p>`:''}${challengePanel(true)}</div>`:c&&a?`<div class="panel stack"><div class="row between"><div class="char-head">${c.portrait?`<img class="guide-avatar" src="${esc(c.portrait)}">`:sigil(get(c.id)?'crest':beastIcon(c.type),!get(c.id))}<div><small>ACTIVE FIGURE</small><h2>${esc(c.name)}</h2><small>${c.hp} / ${c.stats[5]} HP · ${a.used.length} / ${a.max} actions used</small></div></div><button class="primary" onclick="guideEnd()">End activation ✓</button></div><div class="guided-steps">${Array.from({length:a.max},(_,i)=>`<span class="${i<a.used.length?'current':''}">${i+1} · ${esc(a.used[i]||'Available')}</span>`).join('')}</div>${c.conditions?.length?`<p class="warning">${esc(c.conditions.join(' · '))}${c.conditions.includes('Entangled')?' — resolve scenario escape check before movement.':''}</p>`:''}<div class="row"><button onclick="guideAction('move')" ${guideCanAction(c.id,'move')?'':'disabled'}>Move</button><button onclick="guideCombat()" ${guideCanAction(c.id,'other')?'':'disabled'}>⚔ Combat</button><button onclick="guideAction('reload')" ${guideCanAction(c.id,'replaceMove')?'':'disabled'}>Reload</button><button onclick="guideAction('other')" ${guideCanAction(c.id,'other')?'':'disabled'}>Interact / other</button><button onclick="guideCheck()">Skill check</button></div><small>Two actions normally, at least one move; a second move is half speed. Free checks do not spend an action; record a required interaction action separately. Manual controls remain available for exceptions.</small>${guideAI()}${guideEffectPanel()}</div>`:`<div class="stack"><h3>Choose next figure</h3><div class="guide-queue">${queue.map(x=>`<button onclick="guideStart('${x.id}')">${x.portrait?`<img class="guide-avatar" src="${esc(x.portrait)}">`:sigil(get(x.id)?'crest':beastIcon(x.type),!get(x.id))}<span><b>${esc(x.name)}</b><small>${x.hp} HP · ${S.phase===1?'Creature':x.kind==='ranger'?'Will '+sign(x.stats[4]):'Companion'}</small></span></button>`).join('')||'<p class="good">All eligible figures have activated.</p>'}</div><small>Rangers: Will order; companions in the early phase are limited by the number of rangers. Resolve ties and individual ranger groups on the tabletop.</small></div>`}<div class="row between"><span><b>${S.scenarioXP} XP</b> · ${g.secured} secured treasure</span><div class="row"><button onclick="guideSecure()">+ Secure treasure</button><button class="primary" onclick="guideAdvance()">${S.phase===3?'Complete turn':'Next phase'} →</button></div></div></section>`}
 function guideCanReturnToBattle(){
  const g=G(),s=S.session,r=s?.conventRecovery;
- return !!g?.post&&!Object.keys(g.survivalApplied||{}).length&&!Object.keys(s.survival||{}).length&&!g.treasure.length&&!g.pendingTreasure&&!r?.aid?.length&&!r?.heals?.length;
+ return !!g?.post&&!Object.keys(g.survivalApplied||{}).length&&!Object.keys(s.survival||{}).length&&!g.treasure.length&&!g.pendingTreasure&&!r?.aid?.length&&!r?.heals?.length&&!s.go2?.fireRecovery?.length;
 }
 function guideReturnToBattle(){
  if(!guideCanReturnToBattle()){toast('After-action decisions have been recorded. Finish and archive this scenario.');return}
  G().post=false;commit();
 }
-function guidePostStart(){let g=G();if(!g)return;if((g.pending||[]).length){toast('Resolve pending disease checks first.');return}if(!g.post&&!confirm('End tactical play and begin the after-action sequence? You can return to battle before recording survival, treasure, or Burning Light recovery decisions.'))return;g.post=true;g.actor=null;g.recovery??=missionData[S.scenario]?.burning?'burning':S.scenario==='Tor Varden — Lower Level'?'8':'full';commit();}
+function guidePostStart(){let g=G();if(!g)return;if((g.pending||[]).length){toast('Resolve pending disease checks first.');return}if(!g.post&&!confirm('End tactical play and begin the after-action sequence? You can return to battle before recording survival, treasure, or recovery decisions.'))return;g.post=true;g.actor=null;g.recovery??=missionData[S.scenario]?.burning?'burning':S.scenario==='Tor Varden — Lower Level'?'8':'full';commit();}
 function guideDie(raw){if(raw===null)return null;let v=raw.trim()===''?rnd(20):Number(raw);if(!Number.isInteger(v)||v<1||v>20){toast('Enter a whole d20 result from 1–20.');return null}return v}
 function guideInjure(c,die){let row=injuryData.find(x=>die>=x[1]&&die<=x[2]);if(!row)return '';let name=row[0];c.injuryLedger||={};let count=c.injuryLedger[name]||0;if(count>=2)return name+' (maximum reached)';c.injuryLedger[name]=count+1;let spec={'Lost Toes':[0,-.5],'Smashed Leg':[0,-1],'Crushed Arm':[1,-1],'Lost Fingers':[2,-1],'Psychological Scars':[4,-1]}[name];if(spec)c.stats[spec[0]]+=spec[1];if(name==='Smashed Jaw'&&c.kind==='ranger'&&count===0)c.skills.Leadership=n(c.skills.Leadership)-3;if(name==='Lost Eye'&&count===1){c.active=false;c.retired=true;}c.injuries=[c.injuries,name+' ('+row[3]+')'].filter(Boolean).join('\n');return name}
 function guideSurvival(id){let g=G(),c=get(id);if(!g.post||g.survivalApplied[id]||!c)return;let die=guideDie(prompt('Survival roll for '+c.name+' — enter physical d20 or leave blank for digital.',''));if(die===null)return;let bonus=c.kind==='ranger'&&confirm('Apply the ranger’s optional +1 to the roll of '+die+'?')?1:0;let total=die+bonus,outcome=total<=2?'Dead':total<=4?'Permanent injury':total<=6?'Badly wounded':total<=8?'Close call':'Full recovery',inj='';if(outcome==='Permanent injury'){let r=guideDie(prompt('Permanent injury: enter physical d20 or leave blank to roll.',''));if(r===null)return;inj=guideInjure(c,r);}if(outcome==='Dead'){c.dead=true;c.active=false;c.inventory=[];c.hp=0;}else{c.hp=c.stats[5];if(outcome==='Close call'){c.inventory=[];let basic=new Set(basicGear.map(x=>x[0].toLowerCase()));c.equipment=(c.equipment||'').split(',').map(x=>x.trim()).filter(x=>basic.has(x.toLowerCase())).join(', ');}if(outcome==='Badly wounded')c.nextWound=5;}g.survivalApplied[id]={die,total,outcome,inj};S.session.survival[id]=die+' → '+total+' · '+outcome+(inj?' · '+inj:'');guideLog(c.name+': '+S.session.survival[id]);commit();}
@@ -986,7 +986,7 @@ missionReference=function(){
  const live=!!S.session,p=go2Prefs()[S.scenario]||{},men=S.mission==='Menagerie',inc=S.mission==='Incinerator';
  const diff=men?['Standard','Challenge level 1','Challenge level 2']:inc?['Standard','Challenge','Challenge: 3–4 level 10+ rangers']:['Standard','Challenge'];
  const starter=Object.entries(m.foes).map(([t,q])=>q+' '+t).join(' · ');
- return '<section class="panel stack section briefing"><div class="eyebrow">Gathering of Heroes · '+(live?'In progress':'Preparation')+'</div><h2>'+esc(S.scenario)+'</h2><p>'+esc(m.intro)+'</p><div class="stat"><small>Table</small><b>'+esc(m.size)+'</b></div>'+(!live&&usesBloodMoonAllowance()?bloodMoonPartyNotice():'')+'<div class="note"><b>Terrain &amp; deployment</b><p>'+esc(m.layout)+'</p></div>'+(starter?'<p><b>Initial roster:</b> '+esc(starter)+'</p>':'')+'<div class="note"><b>At the table</b><p>'+esc(m.notes)+'</p>'+(m.special?'<p>'+esc(m.special)+'</p>':'')+'</div>'+(!live?'<div class="fields"><label for="go2Diff">Difficulty<select id="go2Diff" onchange="go2SetPref(\'difficulty\',this.selectedIndex)">'+opts(diff,diff[p.difficulty||0])+'</select></label>'+(S.scenario==='Claw and Fang'?'<label for="go2Band">Event table<select id="go2Band" onchange="go2SetPref(\'band\',this.selectedIndex)">'+opts(['Level 0–5','Level 6–10'],p.band?'Level 6–10':'Level 0–5')+'</select></label>':'')+'</div>':'')+'<div class="row"><button onclick="openGohReference('+m.p+')">Private setup · p. '+m.p+'</button><button class="primary" onclick="prepareMission()">'+(live?'Resume scenario':'Commence scenario')+'</button>'+(live?'<button class="danger" onclick="abandonEncounter()">Abandon / undo start</button>':'')+'</div><small>Numbered notes, clues and special events are revealed at the table, not in advance.</small></section>';
+ return '<section class="panel stack section briefing"><div class="eyebrow">Gathering of Heroes · '+(live?'In progress':'Preparation')+'</div><h2>'+esc(S.scenario)+'</h2><p>'+esc(m.intro)+'</p><div class="stat"><small>Table</small><b>'+esc(m.size)+'</b></div>'+(!live&&usesBloodMoonAllowance()?bloodMoonPartyNotice():'')+(!live&&fireDropSelected()?'<div class="note"><b>Opening Health</b><p>'+({0:'No opening Health penalty for this party.',6:'All deployed heroes start with 3 less Health.',10:'All deployed heroes start at half Health, rounded down.'}[fireDropTier()])+' The tracker uses the lowest deployed ranger level for these party-wide thresholds.</p></div>':'')+'<div class="note"><b>Terrain &amp; deployment</b><p>'+esc(m.layout)+'</p></div>'+(starter?'<p><b>Initial roster:</b> '+esc(starter)+'</p>':'')+'<div class="note"><b>At the table</b><p>'+esc(m.notes)+'</p>'+(m.special?'<p>'+esc(m.special)+'</p>':'')+'</div>'+(!live?'<div class="fields"><label for="go2Diff">Difficulty<select id="go2Diff" onchange="go2SetPref(\'difficulty\',this.selectedIndex)">'+opts(diff,diff[p.difficulty||0])+'</select></label>'+(S.scenario==='Claw and Fang'?'<label for="go2Band">Event table<select id="go2Band" onchange="go2SetPref(\'band\',this.selectedIndex)">'+opts(['Level 0–5','Level 6–10'],p.band?'Level 6–10':'Level 0–5')+'</select></label>':'')+'</div>':'')+'<div class="row"><button onclick="openGohReference('+m.p+')">Private setup · p. '+m.p+'</button><button class="primary" onclick="prepareMission()">'+(live?'Resume scenario':'Commence scenario')+'</button>'+(live?'<button class="danger" onclick="abandonEncounter()">Abandon / undo start</button>':'')+'</div><small>Numbered notes, clues and special events are revealed at the table, not in advance.</small></section>';
 };
 const go2OldPrepare=prepareMission;
 prepareMission=function(){
@@ -1009,6 +1009,7 @@ prepareMission=function(){
  }
  if(S.scenario==='Rear Guard')state.npc=Array.from({length:8},(_,i)=>'Wounded soldier '+(i+1));
  if(S.scenario==='Claw and Fang')state.npc=['Orla','Seb','Covin','Nicolan'];
+ fireDropOpening(state);
  if(S.scenario==='Destroy the Stone')state.npc=['Nesra'];
  if(m.side==='opening'&&S.deck.length){state.opening=S.deck.pop();appendField('Opening event (creatures only): '+state.opening);}
  const missing=Object.keys(foes).filter(k=>!monsters[k]);
@@ -2809,6 +2810,66 @@ guideArchive=function(){
  }
  r.conventRecovery=data;r.finalHeroes=r.finalHeroes?.map(c=>cured.has(c.id)?clone(get(c.id)):c);
  commit();
+};
+
+
+/* Incinerator: opening injuries and the one recovery window between scenarios. */
+function fireDropTier(rangers=partyRangers()){
+ return !rangers.length?0:rangers.every(c=>n(c.level)>=10)?10:rangers.every(c=>n(c.level)>=6)?6:0;
+}
+function fireDropSelected(){return S.mission==='Incinerator'&&S.scenario==='Fire Drop'&&!S.customScenario&&!ARENA;}
+function fireDropOpening(state){
+ if(!fireDropSelected()||!S.session||state.fireOpening!==undefined)return;
+ const tier=state.fireOpening=fireDropTier();
+ if(!tier)return;
+ for(const c of S.session.participants.map(get).filter(c=>c&&!c.dead&&!c.retired&&c.hp>0)){
+  c.hp=Math.max(0,tier===10?Math.floor(c.hp/2):c.hp-3);
+ }
+ appendField(tier===10?'Fire Drop: the experienced company begins at half starting Health (rounded down).':'Fire Drop: each deployed figure starts with 3 less Health.');
+}
+function fireRecoveryHeroes(){
+ return (S.session?.participants||[]).map(get).filter(c=>c&&c.hp>0&&!c.dead&&!c.retired&&c.active!==false);
+}
+function fireRecoverySources(){
+ return fireRecoveryHeroes().flatMap(c=>[
+  ...(c.spells||[]).flatMap((name,slot)=>{
+   const at=(c.abilities||[]).length+slot;
+   return name==='Heal'&&!c.used?.includes(at)?[{key:'spell|'+c.id+'|'+at,c,at,spell:true,label:c.name+' • Heal #'+(slot+1)}]:[];
+  }),
+  ...(c.inventory||[]).flatMap((item,i)=>item.name==='Potion of Healing'&&n(item.charges)>0?
+   [{key:'potion|'+c.id+'|'+i,c,item,label:c.name+' • Potion of Healing ('+item.charges+' left)'}]:[])
+ ]);
+}
+function fireRecover(){
+ const g=G(),f=S.session?.go2;
+ if(!fireDropSelected()||!f||!g?.post||!conventRecoveryReady())return;
+ const tool=fireRecoverySources().find(x=>x.key===$('fireHealSource')?.value);
+ const c=tool?.spell?get($('fireHealTarget')?.value):tool?.c;
+ if(!tool||!fireRecoveryHeroes().includes(c)){toast('Choose an unused Heal or a charged healing potion and a valid recipient.');return}
+ const poisoned=(c.conditions||[]).includes('Poisoned');
+ if(c.hp>=c.stats[5]&&!poisoned){toast('This figure is already at full Health.');return}
+ const amount=tool.spell&&String(tool.c.equipment||'').split(/[,\n]/).some(v=>v.trim().toLowerCase()==='holy icon')?6:5;
+ const from=c.hp;
+ if(tool.spell)(tool.c.used||=[]).push(tool.at);else tool.item.charges--;
+ c.hp=Math.min(c.stats[5],c.hp+amount);
+ if(!tool.spell||c.hp===c.stats[5])c.conditions=(c.conditions||[]).filter(x=>x!=='Poisoned');
+ (f.fireRecovery||=[]).push({source:tool.c.id,target:c.id,kind:tool.spell?'Heal':'Potion of Healing',from,to:c.hp});
+ guideLog(tool.label+' → '+c.name+': '+from+' to '+c.hp+' Health before Prison Break.');commit();
+}
+function fireRecoveryPanel(){
+ if(!fireDropSelected()||!S.session?.go2||!G()?.post)return '';
+ const title='<div class="note stack"><b>Before Prison Break</b><p>Health carries forward without automatic healing. Survivors who went down resume at 1 Health before optional recovery. Use any unused Heal or a Potion of Healing here; abilities and spells refresh for Prison Break.</p>';
+ if(!conventRecoveryReady())return title+'<small>Resolve survival first.</small></div>';
+ const hits=fireRecoveryHeroes().filter(c=>c.hp<c.stats[5]||(c.conditions||[]).includes('Poisoned'));
+ const sources=fireRecoverySources().filter(x=>x.spell?hits.length:hits.includes(x.c));
+ const list=hits.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+' • '+c.hp+'/'+c.stats[5]+' HP</option>').join('');
+ if(!sources.length)return title+'<small>No eligible healing remains.</small></div>';
+ return title+'<label for="fireHealSource">Unused Heal or healing potion</label><select id="fireHealSource"><option value="">Choose a spell or potion</option>'+sources.map(x=>'<option value="'+esc(x.key)+'">'+esc(x.label)+'</option>').join('')+'</select><label for="fireHealTarget">Spell recipient (potions heal their bearer)</label><select id="fireHealTarget"><option value="">Choose a figure</option>'+list+'</select><button onclick="fireRecover()">Apply recovery</button><small>Recording recovery closes Return to battle.</small></div>';
+}
+const firePrevPanel=postPanel;
+postPanel=function(){
+ const h=firePrevPanel(),recovery=fireRecoveryPanel();
+ return recovery?h.replace(/<h3>3 [^<]+<\/h3>/,label=>label+recovery):h;
 };
 
 $('brandMark').innerHTML=icon('crest');render();save();
