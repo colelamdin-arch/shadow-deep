@@ -291,7 +291,7 @@ function sessionLogHTML(limit=12){return `<div class="panel stack section"><div 
 function fullLog(){let d=$('editor');d.innerHTML=sessionLogHTML(100000)+`<button onclick="$ ('editor').close()">Close</button>`;d.showModal()}
 function clearEncounter(){delete S.enemySerial;delete S.removedEnemies;S.turn=1;S.phase=0;S.prepared=false;S.enemies=[];S.objectives=[];S.deck=[];S.drawn=[];S.scenarioXP=0;S.challengeApplied=[];S.roundLimit=missionData[S.scenario]?.turns??S.roundLimit;S.session=null;all().forEach(c=>{c.activated=false})}
 function abandonEncounter(){if(!S.session&&!encounterExists())return;let before=S.session?.before;if(!confirm(before?'Abandon this scenario? All changes since commencement (including damage, items, XP and discoveries) will be discarded. Your pre-scenario characters and completed history will be restored.':'Clear this older encounter? This removes enemies, turn progress, objectives and event cards. Character sheets, XP and journal are retained; previous character changes cannot be automatically reversed.'))return;if(before){S={...clone(before),session:null};}else clearEncounter();commit();show('campaign');toast('Encounter cancelled. No results awarded.');}
-const oldPrepare=prepareMission;prepareMission=function(){if(encounterExists()){show('play');return}let m=missionData[S.scenario];if(!active().length){toast('Create or activate a hero first');return}if(!confirm('Commence '+(S.customScenario||S.scenario)+' with '+active().length+' active heroes? Your campaign will be saved before the battle starts.'))return;let before=clone(S);delete before.session;let participants=active().map(c=>c.id);S.session={id:uid(),started:new Date().toISOString(),participants,before,log:[],downed:active().filter(c=>c.hp<=0).map(c=>c.id),survival:{},clues:[]};S.prepared=true;S.turn=1;S.phase=0;S.scenarioXP=0;S.enemySerial=0;S.removedEnemies=[];S.enemies=[];S.objectives=[];S.deck=[];S.drawn=[];S.challengeApplied=[];S.rolls=[];active().forEach(c=>{c.activated=false;c.used=[]});if(m&&!S.customScenario){let foes={...m.foes};if(S.challenge)for(let [t,q] of Object.entries(challengeData[S.scenario]?.extra||{}))foes[t]=(foes[t]||0)+q;for(let [t,q] of Object.entries(foes))for(let i=0;i<q;i++){let v=monsters[t];if(v)S.enemies.push({id:uid(),type:t,name:t+' '+(i+1),stats:v.slice(0,6),hp:v[5],xp:v[6],traits:v[7],awarded:false,activated:false})}for(let [label,xp,q] of [...m.obj,...(extraObjectives[S.scenario]||[])])for(let i=0;i<q;i++)S.objectives.push({id:uid(),text:label+(q>1?' '+(i+1):''),xp,done:false});S.deck=presetCards(m);for(let i=S.deck.length-1;i>0;i--){let j=rnd(i+1)-1;[S.deck[i],S.deck[j]]=[S.deck[j],S.deck[i]]}S.roundLimit=m.turns;}commit();show('play');toast('Scenario started. Progress will be saved.');};
+const oldPrepare=prepareMission;prepareMission=function(){if(encounterExists()){show('play');return}let m=missionData[S.scenario];if(!active().length){toast('Create or activate a hero first');return}if(!templeRetryConfirming&&!confirm('Commence '+(S.customScenario||S.scenario)+' with '+active().length+' active heroes? Your campaign will be saved before the battle starts.'))return;let before=clone(S);delete before.session;let participants=active().map(c=>c.id);S.session={id:uid(),started:new Date().toISOString(),participants,before,log:[],downed:active().filter(c=>c.hp<=0).map(c=>c.id),survival:{},clues:[]};S.prepared=true;S.turn=1;S.phase=0;S.scenarioXP=0;S.enemySerial=0;S.removedEnemies=[];S.enemies=[];S.objectives=[];S.deck=[];S.drawn=[];S.challengeApplied=[];S.rolls=[];active().forEach(c=>{c.activated=false;c.used=[]});if(m&&!S.customScenario){let foes={...m.foes};if(S.challenge)for(let [t,q] of Object.entries(challengeData[S.scenario]?.extra||{}))foes[t]=(foes[t]||0)+q;for(let [t,q] of Object.entries(foes))for(let i=0;i<q;i++){let v=monsters[t];if(v)S.enemies.push({id:uid(),type:t,name:t+' '+(i+1),stats:v.slice(0,6),hp:v[5],xp:v[6],traits:v[7],awarded:false,activated:false})}for(let [label,xp,q] of [...m.obj,...(extraObjectives[S.scenario]||[])])for(let i=0;i<q;i++)S.objectives.push({id:uid(),text:label+(q>1?' '+(i+1):''),xp,done:false});S.deck=presetCards(m);for(let i=S.deck.length-1;i>0;i--){let j=rnd(i+1)-1;[S.deck[i],S.deck[j]]=[S.deck[j],S.deck[i]]}S.roundLimit=m.turns;}commit();show('play');toast('Scenario started. Progress will be saved.');};
 missionReference=function(){let m=missionData[S.scenario],b=briefing[S.scenario],live=!!S.session;if(S.customScenario||!m||!b)return `<div class="panel stack section"><h2>Custom briefing</h2><p>Prepare your own tabletop and add enemies and objectives after commencement.</p><button class="primary" onclick="prepareMission()">${live?'Resume battle':'Commence scenario'}</button></div>`;let k=S.scenario+'|'+(S.challenge?'challenge':'standard'),checks=S.briefChecks?.[k]||{};return `<div class="panel stack section briefing"><div class="eyebrow">${live?'ACTIVE SCENARIO':'PREPARATION · NOT STARTED'} · FIELD BRIEFING</div><h2>${esc(S.scenario)}</h2><p>${esc(b.story)}</p><div class="grid"><div class="stat"><small>Duration</small><b>${m.turns||'Variable'} ${m.turns?'turns':''}</b></div><div class="stat"><small>Active party</small><b>${active().length} heroes</b></div><div class="stat"><small>Rulebook</small><b>pp. ${m.p}–${m.end}</b></div></div><div class="two"><div class="stack"><h3>⚑ Table preparation</h3>${b.terrain.map((t,i)=>`<label class="check"><input type="checkbox" ${checks[i]?'checked':''} onchange="briefingCheck(${i},this.checked)"><span>${esc(t)}</span></label>`).join('')}</div><div class="stack"><h3>Battlefield sketch</h3>${schematic(S.scenario)}</div></div><div class="two"><div class="stack"><h3>✧ Before battle</h3>${b.checks.map(t=>`<div class="note">${esc(t)}</div>`).join('')}<h3>⚔ Special rules</h3>${b.rules.map(t=>`<div class="note">${esc(t)}</div>`).join('')}</div><div class="stack"><h3>Starting deployment</h3>${active().map(c=>`<div class="row between"><span>${esc(c.name)}</span><small>${c.hp}/${c.stats[5]} HP</small></div>`).join('')||'<small>No heroes</small>'}${Object.entries({...m.foes,...(S.challenge?Object.fromEntries(Object.entries(challengeData[S.scenario]?.extra||{}).map(([t,q])=>[t,(m.foes[t]||0)+q])):{})}).map(([t,q])=>`<div class="row between"><span>${esc(t)}</span><b>×${q}</b></div>`).join('')||'<small>Enemies revealed through events or room cards.</small>'}<h3>XP objectives</h3>${[...m.obj,...(extraObjectives[S.scenario]||[])].map(([t,x,q])=>`<div class="row between"><span>${esc(t)} ${q>1?'×'+q:''}</span><small>+${x} XP each</small></div>`).join('')||'<small>Record discoveries and scenario-specific awards as revealed.</small>'}<small>Creature XP and hidden discovery awards are recorded during battle; check book for exceptions.</small><h3>End conditions</h3><div class="note">${esc(b.end)}</div></div></div>${challengePanel()}<div class="row"><button class="primary" onclick="prepareMission()">${live?'Resume scenario →':'⚔ Commence scenario'}</button>${live?'<button class="danger" onclick="abandonEncounter()">Abandon / undo start</button>':'<small>Viewing or checking this briefing does not start a game.</small>'}</div></div>`};
 const oldPlay=play;play=function(){if(!S.session)return `<div class="panel stack hero-banner"><div class="eyebrow">BATTLE STATION · STANDBY</div><h2>No scenario in progress</h2><p>Prepare your tabletop, choose your difficulty and commence when ready. Your heroes remain in the roster until then.</p><button class="primary" onclick="show('campaign')">Open mission briefing →</button></div>${missionReference()}`;let b=briefing[S.scenario];return `<div class="panel stack session-banner"><div class="row between"><div><div class="eyebrow">● IN PROGRESS · AUTOSAVE</div><h2>${esc(S.customScenario||S.scenario)}</h2><small>${S.session.participants.length} deployed · ${S.enemies.filter(e=>e.hp>0).length} creatures standing</small></div><div class="row"><button onclick="show('campaign')">Briefing</button><button onclick="show('dashboard')">Pause / exit battle</button><button class="danger" onclick="abandonEncounter()">Abandon scenario</button></div></div></div>`+oldPlay().replace(/<button onclick="prepareMission\(\)">Prepare encounter<\/button>/,'')+`<div class="panel stack section"><h3>Discoveries & field notes</h3>${secretClues[S.scenario]?'<button class="primary" onclick="clueDialog()">Investigate clue / cocoon</button>':''}<button onclick="fieldNote()">+ Log discovery, loot or special rule</button>${S.session.clues.map(c=>`<div class="note"><b>${esc(c.result)}</b> · ${esc(c.hero)} (d20 ${c.die})<br>${esc(c.effect)}</div>`).join('')}${b?`<details><summary>Scenario rules and end conditions</summary>${b.rules.map(t=>`<p>${esc(t)}</p>`).join('')}<p>${esc(b.end)}</p></details>`:''}</div>`+sessionLogHTML()};
 function fieldNote(){let t=prompt('Record a discovery, event effect, treasure or other field note:');if(t?.trim()&&S.session){S.session.log.unshift({turn:S.turn,phase:phases[S.phase],msg:t.trim(),date:new Date().toISOString()});commit()}}
@@ -1204,13 +1204,14 @@ enemyKill=function(id){
 
 function go2CandidateList(){
  const last=S.history?.[0];if(!last)return [['The Missing','The Deserted Village']];
+ if(last.mission==='Temple of Madness'&&['failure','withdrawal'].includes(last.go2?.result))return [['Incinerator','Fire Drop']];
  if(last.mission==='Burning Light')return last.scenario==='The Final Showdown'?[['Menagerie','The Unintended Ambush']]:[];
  if(['failure','withdrawal'].includes(last.go2?.result))return [[last.mission,last.scenario],['Incinerator','Fire Drop']].filter((x,i,a)=>i===a.findIndex(y=>y[1]===x[1]));
  if(last.scenario==='Rear Guard')return [['Ghost Stone','The Gnoll Encampment']];
  if(last.scenario==='The Gnoll Encampment')return [['Ghost Stone','The Distraction']];
  if(last.scenario==='The Distraction')return [['Ghost Stone','Destroy the Stone']];
  if(last.mission==='Temple of Madness'&&go2TempleNext[last.scenario]){
-  const played=new Set(S.history.filter(h=>h.go2?.result!=='failure'&&h.mission===last.mission).map(h=>h.scenario));
+  const played=new Set(S.history.filter(h=>(!h.go2||h.go2.result==='success')&&h.mission===last.mission).map(h=>h.scenario));
   let choices=go2TempleNext[last.scenario];
   if(last.scenario!=='The Laughing Columns')choices=choices.filter(t=>t==='The Mirror Enduring'?played.has('Pit of Ghouls')&&played.has('The Incantation Lock'):!played.has(t));
   if(last.go2?.next&&choices.includes(last.go2.next))choices=[last.go2.next];
@@ -1786,6 +1787,7 @@ function go4FixedRoster(missionName){
 }
 function go4MissionCheck(){
  if(S.customScenario)return '';
+ if(S.mission==='Temple of Madness'&&S.history.some(h=>h.mission===S.mission&&['failure','withdrawal'].includes(h.go2?.result)))return 'This Temple expedition has a recorded failure. Choose the vision retry in After Action before archiving a failed attempt.';
  if(S.mission==='Ghost Stone')return go4GhostParty().error;
  const m=missions[S.mission],i=m?.indexOf(S.scenario)??-1;
  if(i<1)return '';
@@ -2870,6 +2872,42 @@ const firePrevPanel=postPanel;
 postPanel=function(){
  const h=firePrevPanel(),recovery=fireRecoveryPanel();
  return recovery?h.replace(/<h3>3 [^<]+<\/h3>/,label=>label+recovery):h;
+};
+
+
+/* Temple of Madness: a failed attempt may be discarded as a vision, once. */
+let templeRetryConfirming=false;
+function templeCanRetry(){
+ return !ARENA&&!S.customScenario&&S.mission==='Temple of Madness'&&missions[S.mission]?.includes(S.scenario)&&
+  !!S.session?.before&&S.session?.go2?.result==='failure'&&!!G()?.post&&!S.templeVisions?.[S.scenario];
+}
+function templeRetryDialog(){
+ if(!templeCanRetry())return;
+ const d=$('editor');
+ d.innerHTML='<div class="stack"><h2>Retry as a vision?</h2><p>The figures return to their original starting Health. This attempt is discarded, including its XP, rewards, injuries and item use. The second attempt is the one that counts.</p><div class="row"><button class="primary" onclick="templeRetry()">Begin second attempt</button><button onclick="$(\'editor\').close()">Keep current attempt</button></div></div>';
+ if(!d.open)d.showModal();
+}
+function templeRetry(){
+ if(!templeCanRetry()||!shadowSaveCheck())return;
+ const previous=S,first=S.session,scenario=S.scenario;
+ $('editor')?.close();
+ S={...clone(first.before),session:null};
+ (S.templeVisions||={})[scenario]={id:first.id,date:new Date().toISOString()};
+ templeRetryConfirming=true;
+ try{prepareMission();}finally{templeRetryConfirming=false;}
+ if(!S.session){
+  S=previous;commit();show('play');
+  toast('Could not start the retry. The failed attempt is still open.');return;
+ }
+ guideLog('Second attempt: the first attempt was treated as a vision. No results were carried over.');commit();
+}
+const templePriorPost=postPanel;
+postPanel=function(){
+ const h=templePriorPost(),x=S.session?.go2;
+ if(ARENA||S.customScenario||S.mission!=='Temple of Madness'||x?.result!=='failure')return h;
+ const why=templeCanRetry()?'<p>Retry once from the original setup without awarding anything from this attempt, or archive the failure as final.</p><button onclick="templeRetryDialog()">Retry as a vision</button>':
+  '<p>'+(S.templeVisions?.[S.scenario]?'The optional retry was already used.':'The original setup is missing, so the tracker cannot safely restore it.')+' Archiving records a final failure.</p>';
+ return h.replace(/<h3>3 [^<]+<\/h3>/,label=>label+'<div class="note stack"><b>Temple of Madness • Price of Failure</b>'+why+'</div>');
 };
 
 $('brandMark').innerHTML=icon('crest');render();save();
